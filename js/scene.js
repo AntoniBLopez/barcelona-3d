@@ -197,16 +197,19 @@ export async function createScene(canvas, hooks) {
     const east = m.obj.userData.east;
     const overhead = m.id === 'guell';
     const basilica = m.id === 'sagrada';
-    const view = n.clone().multiplyScalar(basilica ? 0.36 : overhead ? 0.92 : 0.55)
-      .add(south.clone().multiplyScalar(basilica ? 0.84 : overhead ? 0.4 : 0.78))
-      .add(east.clone().multiplyScalar(basilica ? 0.42 : 0.2))
+    const bowl = m.id === 'campnou';
+    const view = n.clone().multiplyScalar(basilica ? 0.36 : bowl ? 0.8 : overhead ? 0.92 : 0.55)
+      .add(south.clone().multiplyScalar(basilica ? 0.84 : bowl ? 0.5 : overhead ? 0.4 : 0.78))
+      .add(east.clone().multiplyScalar(basilica ? 0.42 : bowl ? 0.28 : 0.2))
       .normalize();
     const h = m.worldH || 0.08;
-    const lift = basilica ? 0.52 : 0.45;
+    const lift = basilica ? 0.52 : bowl ? 0.25 : 0.45;
     const focus = n.clone().multiplyScalar(m.base + h * lift).add(east.clone().multiplyScalar(Math.min(0.55, h * 1.2)));
     const dist = m.id === 'sagrada'
       ? 2.6
-      : Math.min(9, Math.max(2.5, h * 7 + (m.worldSpan || h) * 3.2));
+      : bowl
+        ? 2.55
+        : Math.min(9, Math.max(2.5, h * 7 + (m.worldSpan || h) * 3.2));
     rig.flyTo(view, dist * (innerWidth > 860 ? 1 : 1.25), focus, 1700);
     ring.position.set(0, 0.02, 0);
     ring.scale.setScalar(Math.max(0.05, (m.worldSpan || 0.2) * 0.62));

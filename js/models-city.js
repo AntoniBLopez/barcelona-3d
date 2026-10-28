@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA } from './kit.js';
+import { campnou } from './models-campnou.js';
 
 const stone = () => mat('#e4d5bc');
 const brick = () => mat('#b5644a');
@@ -117,16 +118,6 @@ export function estadi() {
   add(g, new THREE.CylinderGeometry(0.7, 0.72, 0.08, 18), mat('#3d8f4a'), 0, 0.12, 0);
   add(g, box(0.45, 0.35, 0.2), mat('#d7c4a0'), 0, 0.45, 0.78);
   add(g, box(1.5, 0.06, 0.08), mat('#f2f2f2'), 0, 0.42, 0);
-  return g;
-}
-
-export function campnou() {
-  const g = new THREE.Group();
-  add(g, new THREE.CylinderGeometry(78, 86, 18, 24, 1, true), mat('#f2f0ea'), 0, 12, 0);
-  add(g, new THREE.CylinderGeometry(70, 74, 10, 24, 1, true), mat('#a11d33'), 0, 16, 0);
-  add(g, new THREE.CylinderGeometry(64, 68, 8, 24, 1, true), mat('#12284a'), 0, 22, 0);
-  add(g, new THREE.CylinderGeometry(58, 60, 2, 24), mat('#3a8f45'), 0, 3, 0);
-  add(g, box(36, 6, 8), mat('#12284a'), 0, 26, 70);
   return g;
 }
 

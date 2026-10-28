@@ -19,7 +19,7 @@ export const SIZE = {
   castell: [64, 20],
   mnac: [100, 40],
   estadi: [86, 26],
-  campnou: [190, 46],
+  campnou: [320, 50],
   portvell: [54, 18],
   barceloneta: [36, 5],
   glories: [34, 144],
