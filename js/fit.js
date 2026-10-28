@@ -3,7 +3,7 @@ import { U_PER_M } from './geo.js';
 
 /** Real footprint diameter and height, in metres. The mesh is scaled to these. */
 export const SIZE = {
-  sagrada: [78, 102],
+  sagrada: [110, 192],
   guell: [150, 42],
   batllo: [26, 32],
   pedrera: [42, 30],

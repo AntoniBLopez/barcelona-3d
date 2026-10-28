@@ -1,54 +1,11 @@
 import * as THREE from 'three';
 import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA, TRENCA_COOL, checkerTexture } from './kit.js';
 import { guell } from './models-guell.js';
+import { sagrada } from './models-sagrada.js';
 
 const stone = () => mat('#e6d5bc');
 const bone = () => mat('#f4f0e6');
-const sand = () => mat('#e4c49a');
 const iron = () => mat('#2c3138', { roughness: 0.45, metalness: 0.35 });
-
-function spire(g, x, y, z, h, colors) {
-  const body = cyl(h * 0.09, h * 0.13, h * 0.62, 8);
-  add(g, body, stone(), x, y + h * 0.31, z);
-  add(g, box(h * 0.16, h * 0.12, h * 0.16), bone(), x, y + h * 0.68, z);
-  const tip = new THREE.Mesh(mosaic(cone(h * 0.1, h * 0.28, 7), colors), MOSAIC);
-  tip.position.set(x, y + h * 0.86, z);
-  tip.castShadow = true;
-  g.add(tip);
-  add(g, cyl(0.02, 0.02, h * 0.12, 5), bone(), x, y + h * 1.02, z);
-}
-
-/** Sagrada Família: forest of spires, mosaic tips, and a crane still on site. */
-export function sagrada() {
-  const g = new THREE.Group();
-  add(g, box(2.7, 0.16, 1.55), stone(), 0, 0.08, 0);
-  add(g, box(2.35, 0.85, 1.15), sand(), 0, 0.55, 0);
-  add(g, box(2.5, 0.42, 1.4), stone(), 0, 0.32, 0);
-  for (let i = 0; i < 7; i++) {
-    const x = -1.05 + i * 0.35;
-    add(g, cyl(0.045, 0.055, 0.72, 6), bone(), x, 0.5, 0.62);
-    add(g, box(0.1, 0.22, 0.03), WIN, x, 0.55, 0.72);
-  }
-  // Nativity (south) towers are the tall, colourful ones.
-  const front = [[-1.15, 0.68, 2.45], [-0.55, 0.68, 2.15], [0.55, 0.68, 2.2], [1.15, 0.68, 2.5]];
-  const back = [[-1.15, -0.68, 2.0], [-0.5, -0.68, 1.85], [0.5, -0.68, 1.9], [1.15, -0.68, 2.05]];
-  front.forEach(([x, z, h], i) => spire(g, x, 0.7, z, h, i % 2 ? TRENCA : TRENCA_COOL));
-  back.forEach(([x, z, h], i) => spire(g, x, 0.55, z, h, TRENCA));
-  // Evangelists and the tower of Jesus, still rising.
-  add(g, cyl(0.22, 0.32, 2.15, 10), stone(), 0, 1.55, 0);
-  const crown = new THREE.Mesh(mosaic(cone(0.28, 0.7, 8), TRENCA), MOSAIC);
-  crown.position.set(0, 2.9, 0);
-  crown.castShadow = true;
-  g.add(crown);
-  add(g, box(0.08, 0.42, 0.08), bone(), 0, 3.4, 0);
-  add(g, box(0.28, 0.06, 0.06), bone(), 0, 3.52, 0);
-  // Crane on the east side.
-  const crane = mat('#d7a441', { roughness: 0.5, metalness: 0.2 });
-  add(g, cyl(0.025, 0.03, 1.55, 5), crane, 0.55, 2.7, -0.15);
-  add(g, box(0.95, 0.035, 0.035), crane, 0.95, 3.45, -0.15);
-  add(g, cyl(0.01, 0.01, 0.45, 4), crane, 1.25, 3.2, -0.15);
-  return g;
-}
 
 /** Casa Batlló: bone balconies, a dragon-scale roof and the four-armed cross. */
 export function batllo() {
