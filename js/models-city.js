@@ -15,17 +15,17 @@ function windows(g, n, y, z, span, w = 0.1, h = 0.16) {
 
 export function catedral() {
   const g = new THREE.Group();
-  add(g, box(1.5, 0.7, 0.85), stone(), 0, 0.4, 0);
-  add(g, box(1.55, 0.08, 0.9), lead(), 0, 0.78, 0);
-  // Neo-gothic façade.
-  add(g, box(0.9, 1.15, 0.12), stone(), 0, 0.6, 0.42);
-  add(g, cone(0.28, 0.45, 4), stone(), -0.32, 1.3, 0.42);
-  add(g, cone(0.28, 0.45, 4), stone(), 0.32, 1.3, 0.42);
-  add(g, box(0.16, 0.4, 0.04), WIN, 0, 0.45, 0.5);
-  add(g, cyl(0.01, 0.22, 0.04, 12), stone(), 0, 0.85, 0.5);
-  // Cloister pond hint and a dome.
-  add(g, cyl(0.22, 0.24, 0.35, 10), stone(), 0, 1.0, -0.05);
-  add(g, new THREE.SphereGeometry(0.2, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), lead(), 0, 1.18, -0.05);
+  const st = stone();
+  add(g, box(48, 28, 32), st, 0, 16, 0);
+  add(g, box(50, 2, 34), lead(), 0, 31, 0);
+  add(g, box(34, 36, 4), st, 0, 20, 18);
+  for (const x of [-14, 14]) {
+    add(g, box(6, 48, 6), st, x, 26, 18);
+    add(g, cone(4.2, 12, 8), st, x, 54, 18);
+  }
+  add(g, cyl(7, 8, 22, 8), st, 0, 40, 0);
+  add(g, cone(7, 14, 8), lead(), 0, 56, 0);
+  add(g, cyl(4.5, 4.5, 0.6, 12), WIN, 0, 22, 20.2);
   return g;
 }
 
@@ -70,16 +70,16 @@ export function catalunya() {
 
 export function arc() {
   const g = new THREE.Group();
-  add(g, box(0.28, 1.15, 0.28), brick(), -0.55, 0.6, 0);
-  add(g, box(0.28, 1.15, 0.28), brick(), 0.55, 0.6, 0);
-  add(g, box(1.4, 0.28, 0.36), brick(), 0, 1.25, 0);
-  add(g, box(0.7, 0.55, 0.08), mat('#1d2430'), 0, 0.55, 0);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.07, 6, 14, Math.PI), brick());
-  ring.position.set(0, 0.78, 0);
+  const br = brick();
+  add(g, box(5, 24, 5), br, -10, 12, 0);
+  add(g, box(5, 24, 5), br, 10, 12, 0);
+  add(g, box(26, 5, 6), br, 0, 26, 0);
+  add(g, box(12, 11, 1.2), mat('#1d2430'), 0, 11, 0);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(7, 1.1, 6, 16, Math.PI), br);
+  ring.position.set(0, 14, 0);
   g.add(ring);
-  add(g, box(0.5, 0.16, 0.2), stone(), 0, 1.48, 0);
-  add(g, cone(0.08, 0.18, 4), stone(), -0.55, 1.85, 0);
-  add(g, cone(0.08, 0.18, 4), stone(), 0.55, 1.85, 0);
+  add(g, box(10, 2.4, 4), stone(), 0, 30, 0);
+  for (const x of [-10, 0, 10]) add(g, cone(1.3, 3.2, 4), stone(), x, 33, 0);
   return g;
 }
 
@@ -99,16 +99,15 @@ export function castell() {
 export function mnac() {
   const g = new THREE.Group();
   const st = mat('#f0e6d4');
-  add(g, box(2.3, 0.45, 0.7), st, 0, 0.28, 0);
-  add(g, box(0.7, 0.7, 0.55), st, 0, 0.55, 0.05);
-  add(g, cyl(0.28, 0.3, 0.35, 12), st, 0, 1.05, 0.05);
-  add(g, new THREE.SphereGeometry(0.26, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), lead(), 0, 1.22, 0.05);
-  for (const x of [-0.85, 0.85]) {
-    add(g, box(0.4, 0.7, 0.4), st, x, 0.5, 0);
-    add(g, cone(0.22, 0.28, 4), mat('#b4533a'), x, 0.95, 0);
+  add(g, box(96, 16, 28), st, 0, 10, 0);
+  add(g, box(28, 22, 22), st, 0, 20, 2);
+  add(g, cyl(10, 11, 12, 12), st, 0, 34, 2);
+  add(g, new THREE.SphereGeometry(9, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), lead(), 0, 40, 2);
+  for (const x of [-34, 34]) {
+    add(g, box(16, 22, 16), st, x, 16, 0);
+    add(g, cone(8, 10, 4), mat('#b4533a'), x, 30, 0);
   }
-  // Steps.
-  for (let i = 0; i < 4; i++) add(g, box(1.6 - i * 0.2, 0.05, 0.18), stone(), 0, 0.04 + i * 0.05, 0.5 + i * 0.12);
+  for (let i = 0; i < 5; i++) add(g, box(70 - i * 6, 1.4, 6), stone(), 0, 0.8 + i * 1.4, 20 + i * 5);
   return g;
 }
 
@@ -123,31 +122,11 @@ export function estadi() {
 
 export function campnou() {
   const g = new THREE.Group();
-  const bowl = new THREE.CylinderGeometry(1.15, 1.25, 0.45, 20, 1, true);
-  add(g, bowl, mat('#f2f0ea'), 0, 0.28, 0);
-  add(g, new THREE.CylinderGeometry(0.95, 0.98, 0.12, 20), mat('#3a8f45'), 0, 0.12, 0);
-  // Blaugrana seats as a coloured inner ring.
-  const seats = new THREE.CylinderGeometry(1.05, 1.08, 0.28, 20, 1, true);
-  add(g, seats, mat('#a11d33'), 0, 0.32, 0);
-  add(g, box(0.9, 0.12, 0.18), mat('#12284a'), 0, 0.55, 0.95);
-  return g;
-}
-
-export function glories() {
-  const g = new THREE.Group();
-  // Bullet: a lathe of an ogive, pixel-ish coloured glass skin.
-  const pts = [];
-  for (let i = 0; i <= 12; i++) {
-    const t = i / 12;
-    const r = Math.sin(t * Math.PI) * 0.34 * (1 - t * 0.35);
-    pts.push(new THREE.Vector2(Math.max(0.02, r), t * 2.6));
-  }
-  const geo = new THREE.LatheGeometry(pts, 12);
-  const colors = ['#c4554a', '#d07a3a', '#e6c15a', '#7eb8c9', '#8fd0c2', '#f2f4f2'];
-  const mesh = new THREE.Mesh(mosaic(geo, colors), MOSAIC);
-  mesh.castShadow = true;
-  g.add(mesh);
-  add(g, new THREE.SphereGeometry(0.16, 10, 8), mat('#d5e6ee', { transparent: true, opacity: 0.85, roughness: 0.15 }), 0, 2.55, 0);
+  add(g, new THREE.CylinderGeometry(78, 86, 18, 24, 1, true), mat('#f2f0ea'), 0, 12, 0);
+  add(g, new THREE.CylinderGeometry(70, 74, 10, 24, 1, true), mat('#a11d33'), 0, 16, 0);
+  add(g, new THREE.CylinderGeometry(64, 68, 8, 24, 1, true), mat('#12284a'), 0, 22, 0);
+  add(g, new THREE.CylinderGeometry(58, 60, 2, 24), mat('#3a8f45'), 0, 3, 0);
+  add(g, box(36, 6, 8), mat('#12284a'), 0, 26, 70);
   return g;
 }
 
@@ -216,61 +195,48 @@ export function boqueria() {
   return g;
 }
 
-export function tibidabo() {
-  const g = new THREE.Group();
-  add(g, box(0.7, 0.45, 0.5), stone(), 0, 0.28, 0);
-  add(g, cyl(0.16, 0.2, 0.7, 8), stone(), 0, 0.75, 0);
-  add(g, new THREE.SphereGeometry(0.18, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), lead(), 0, 1.15, 0);
-  add(g, box(0.05, 0.35, 0.05), mat('#d7c15a'), 0, 1.45, 0);
-  // Ferris wheel of the amusement park.
-  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.02, 5, 16), mat('#cfd5dc', { metalness: 0.4, roughness: 0.4 }));
-  wheel.position.set(0.55, 0.45, 0);
-  g.add(wheel);
-  add(g, cyl(0.02, 0.02, 0.55, 5), mat('#8d93a0'), 0.55, 0.3, 0);
-  return g;
-}
-
 export function santamaria() {
   const g = new THREE.Group();
-  add(g, box(1.25, 0.7, 0.7), stone(), 0, 0.4, 0);
-  add(g, box(1.3, 0.08, 0.75), lead(), 0, 0.78, 0);
-  // Buttresses.
-  for (const x of [-0.7, -0.35, 0, 0.35, 0.7]) add(g, box(0.06, 0.55, 0.12), stone(), x, 0.35, 0.38);
-  add(g, cyl(0.18, 0.2, 0.45, 10), stone(), 0, 0.95, 0);
-  add(g, cone(0.2, 0.28, 10), lead(), 0, 1.28, 0);
-  // Rose window.
-  add(g, cyl(0.12, 0.12, 0.04, 12), WIN, 0, 0.55, 0.37);
+  const st = stone();
+  add(g, box(32, 22, 22), st, 0, 12, 0);
+  add(g, box(34, 1.4, 24), lead(), 0, 23.5, 0);
+  for (const x of [-16, -8, 0, 8, 16]) add(g, box(1.4, 18, 3), st, x, 10, 12);
+  add(g, cyl(5, 5.5, 14, 8), st, 0, 28, -2);
+  add(g, cone(5.2, 8, 8), lead(), 0, 38, -2);
+  add(g, cyl(3.2, 3.2, 0.5, 12), WIN, 0, 16, 11.3);
   return g;
 }
 
 export function hotelw() {
   const g = new THREE.Group();
-  // A sail: a curved wall leaning over the quay.
   const shape = new THREE.Shape();
   shape.moveTo(0, 0);
-  shape.lineTo(0.15, 0);
-  shape.quadraticCurveTo(0.85, 0.8, 0.35, 1.9);
-  shape.lineTo(0.12, 1.9);
-  shape.quadraticCurveTo(0.55, 0.8, 0, 0);
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.42, bevelEnabled: false });
-  geo.translate(-0.2, 0, -0.21);
-  add(g, geo, mat('#f7f4ef'));
-  add(g, box(0.5, 0.08, 0.55), mat('#d9cbb8'), 0.05, 0.04, 0);
-  // A band of lit windows.
-  for (let i = 0; i < 5; i++) add(g, box(0.06, 0.08, 0.02), WIN, 0.15, 0.35 + i * 0.26, 0.22);
+  shape.lineTo(8, 0);
+  shape.quadraticCurveTo(40, 42, 16, 99);
+  shape.lineTo(5, 99);
+  shape.quadraticCurveTo(28, 44, 0, 0);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 11, bevelEnabled: false });
+  geo.translate(-6, 0, -5.5);
+  const glass = mat('#8eb4c8', {
+    metalness: 0.28, roughness: 0.32, emissive: '#7eb0d0', emissiveIntensity: 1.5,
+  });
+  add(g, geo, glass);
+  add(g, box(34, 8, 20), mat('#d5d0c8'), 4, 4, 2);
+  for (let i = 0; i < 8; i++) add(g, box(10, 0.6, 0.4), WIN, 6, 18 + i * 9, 6);
   return g;
 }
 
 export function colon() {
   const g = new THREE.Group();
-  add(g, cyl(0.28, 0.32, 0.18, 8), stone(), 0, 0.1, 0);
-  add(g, cyl(0.1, 0.14, 1.15, 10), stone(), 0, 0.72, 0);
-  add(g, cyl(0.16, 0.16, 0.08, 8), stone(), 0, 1.32, 0);
-  add(g, box(0.08, 0.22, 0.06), mat('#6a542c'), 0, 1.5, 0);
-  add(g, box(0.16, 0.04, 0.04), mat('#6a542c'), 0, 1.58, 0);
-  // Lions, very small.
-  for (const [x, z] of [[0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]]) {
-    add(g, box(0.08, 0.06, 0.12), mat('#8a7048'), x, 0.08, z);
+  const st = stone();
+  add(g, cyl(7, 8, 4, 8), st, 0, 2, 0);
+  add(g, cyl(2.1, 2.8, 40, 10), st, 0, 24, 0);
+  add(g, cyl(3.4, 3.4, 2, 8), st, 0, 45, 0);
+  const bronze = mat('#6a542c');
+  add(g, box(1.4, 5, 1.1), bronze, 0, 48, 0);
+  add(g, box(1.1, 0.5, 2.4), bronze, 0, 50, 1.2);
+  for (const [x, z] of [[5.2, 0], [-5.2, 0], [0, 5.2], [0, -5.2]]) {
+    add(g, box(1.6, 1.2, 2.4), mat('#8a7048'), x, 1.2, z);
   }
   return g;
 }
@@ -347,9 +313,21 @@ export function barceloneta() {
   return g;
 }
 
+/** Hotel Arts and Torre Mapfre, side by side at the Olympic port. Metres. */
+export function mapfreArts() {
+  const g = new THREE.Group();
+  const glass = mat('#c5d0d8', { metalness: 0.55, roughness: 0.2, emissive: '#9bb4c8', emissiveIntensity: 0.8 });
+  add(g, box(28, 154, 28), glass, -32, 77, 0);
+  add(g, box(22, 8, 22), mat('#e8e4dc'), -32, 156, 0);
+  add(g, box(26, 154, 22), glass, 30, 77, 6);
+  add(g, cyl(1.2, 1.2, 28, 6), mat('#f4f4f4'), 30, 168, 6);
+  add(g, box(70, 6, 40), mat('#d9d3c8'), 0, 3, 4);
+  return g;
+}
+
 export const CITY_BUILDERS = {
-  catedral, gotic, rambla, catalunya, arc, castell, mnac, estadi, campnou, glories,
-  santpau, musica, ciutadella, boqueria, tibidabo, santamaria, hotelw, colon,
+  catedral, gotic, rambla, catalunya, arc, castell, mnac, estadi, campnou,
+  santpau, musica, ciutadella, boqueria, santamaria, hotelw, colon,
   fontmagica, bunkers, espanya, poblenou, portvell, barceloneta,
 };
 

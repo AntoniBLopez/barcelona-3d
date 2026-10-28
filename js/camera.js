@@ -181,8 +181,20 @@ export function createCamera(camera, canvas) {
     const d0 = Math.hypot(p.x - o.x, p.y - o.y);
     const d1 = Math.hypot(e.clientX - o.x, e.clientY - o.y);
     if (d0 < 4 || d1 < 4) return;
-    if (state.focus) state.focus.dTo = Math.min(28, Math.max(2.4, state.focus.dTo * d0 / d1));
-    else state.distTo = Math.min(state.max, Math.max(state.min, state.distTo * d0 / d1));
+    zoomFactor(d0 / d1);
+  }
+  function zoomFactor(f) {
+    state.lastInteract = performance.now();
+    if (state.flight) {
+      state.flight = null;
+      if (state.target.lengthSq() > 1) enterFocus();
+      else {
+        state.dist = camera.position.length();
+        state.distTo = state.dist;
+      }
+    }
+    if (state.focus) state.focus.dTo = Math.min(28, Math.max(2.4, state.focus.dTo * f));
+    else state.distTo = Math.min(state.max, Math.max(state.min, state.distTo * f));
   }
   const up = (e) => {
     state.pointers.delete(e.pointerId);
@@ -192,10 +204,7 @@ export function createCamera(camera, canvas) {
   canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    state.lastInteract = performance.now();
-    const f = 1 + e.deltaY * 0.001;
-    if (state.focus) state.focus.dTo = Math.min(28, Math.max(2.4, state.focus.dTo * f));
-    else state.distTo = Math.min(state.max, Math.max(state.min, state.distTo * f));
+    zoomFactor(1 + e.deltaY * 0.001);
   }, { passive: false });
 
   addEventListener('keydown', (e) => {
@@ -218,5 +227,7 @@ export function createCamera(camera, canvas) {
       flyTo(dir, homeDist(), new THREE.Vector3(), 1400);
     },
     nudge() { state.lastInteract = performance.now(); },
+    zoomBy(deltaY) { zoomFactor(1 + deltaY * 0.001); },
+    pinchBy(factor) { zoomFactor(factor); },
   };
 }

@@ -2,6 +2,7 @@ import { MONUMENTS, GAUDI_ROUTE, catColor, text } from './monuments.js';
 import { CITY } from '../data/city.js';
 import { PHOTOS } from '../data/photos.js';
 import { getLang, setLang, t } from './i18n.js';
+import { bindLabelZoom, declutter } from './labels.js';
 
 const $ = (id) => document.getElementById(id);
 const FLAGS = {
@@ -25,6 +26,7 @@ const stationLabels = new Map();
 export function mount(api) {
   sceneApi = api;
   sceneApi.setNight(night);
+  bindLabelZoom((dy) => sceneApi.zoomBy(dy), (f) => sceneApi.pinchBy(f));
   buildLists();
   renderTexts();
   bind();
@@ -275,18 +277,24 @@ function bind() {
     else if (k === 't') $('t-tram').click();
     else if (k === 'h') $('t-home').click();
     else if (k === 'g') $('gaudi-btn').click();
+    else if (k === '+' || k === '=') sceneApi.zoomBy(-160);
+    else if (k === '-' || k === '_') sceneApi.zoomBy(160);
   });
 }
 
 export function onFrame(payload) {
   const lang = getLang();
+  const rows = [];
   for (const item of payload.monuments) {
     const el = labels.get(item.id);
     if (!el) continue;
-    const hide = !item.visible || (gaudiOnly && !MONUMENTS.find((m) => m.id === item.id).gaudi);
-    el.classList.toggle('hidden', hide);
+    const mon = MONUMENTS.find((m) => m.id === item.id);
+    const show = item.visible && !(gaudiOnly && !mon.gaudi);
     el.style.transform = `translate(${item.x}px, ${item.y}px) translate(-50%, -120%)`;
+    const pin = current && current.id === item.id;
+    rows.push({ el, show, pin, rank: (pin ? 100 : 0) + (item.major ? 8 : 0) });
   }
+  declutter(rows);
   for (const s of payload.stations) {
     const el = stationLabels.get(s.id);
     if (!el) continue;

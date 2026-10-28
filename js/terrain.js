@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { CITY } from '../data/city.js';
+import { MONUMENTS } from './monuments.js';
+import { SIZE } from './fit.js';
 import { R, project, unprojectDir, dirLL, placeOn, U_PER_M } from './geo.js';
 import { mat } from './kit.js';
 
@@ -104,17 +106,19 @@ export function sampleGround(lat, lng) {
     || inRings(lng, lat, CITY.parks.montjuic)
     || inRings(lng, lat, CITY.parks.guell)
   );
-  const mont = gauss(lat, lng, 41.3636, 2.1585, 780);
-  const tibi = gauss(lat, lng, 41.4221, 2.1188, 1400);
-  const carmel = gauss(lat, lng, 41.4188, 2.157, 620);
-  const collserola = gauss(lat, lng, 41.428, 2.11, 2400);
-  const hill = mont * 0.85 + tibi * 1.35 + carmel * 0.5 + collserola * 0.7;
+  const mont = gauss(lat, lng, 41.3636, 2.1585, 900);
+  const tibi = gauss(lat, lng, 41.4221, 2.1188, 1050);
+  const ridgeW = gauss(lat, lng, 41.432, 2.075, 2400);
+  const ridgeE = gauss(lat, lng, 41.416, 2.148, 1700);
+  const carmel = gauss(lat, lng, 41.4188, 2.157, 700);
+  const ridge = Math.max(tibi * 1.18, ridgeW * 0.7, ridgeE * 0.58);
+  const hill = mont * 0.42 + ridge + carmel * 0.26;
   const radius = sea ? R - 0.04 : R + 0.1 + hill + (beach ? -0.04 : 0);
   let kind = 'city';
   if (sea) kind = 'sea';
   else if (beach) kind = 'beach';
   else if (park || mont > 0.35) kind = 'park';
-  else if (tibi > 0.28 || collserola > 0.42) kind = 'forest';
+  else if (tibi > 0.2 || ridgeW > 0.32 || ridgeE > 0.28) kind = 'forest';
   else if (lat > 41.372 && lat < 41.408 && lng > 2.142 && lng < 2.188) kind = 'eixample';
   return { sea, beach, park, kind, radius, coastM };
 }
@@ -178,7 +182,25 @@ export function buildPlanet(world) {
   return { land, water };
 }
 
-/** Chamfered Cerdà blocks, aligned with Gran Via. */
+function nearPoly(lat, lng, line, limit) {
+  if (!line) return false;
+  const x = lng * M_LNG;
+  const y = lat * M_LAT;
+  for (let i = 0; i < line.length - 1; i++) {
+    const ax = line[i][0] * M_LNG;
+    const ay = line[i][1] * M_LAT;
+    const bx = line[i + 1][0] * M_LNG;
+    const by = line[i + 1][1] * M_LAT;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
+    if (Math.hypot(x - ax - dx * t, y - ay - dy * t) < limit) return true;
+  }
+  return false;
+}
+
+/** Chamfered Cerdà blocks with a street and a sidewalk between them. */
 export function buildEixample(world) {
   const axis = CITY.axes.granvia;
   const a = axis[0];
@@ -187,52 +209,91 @@ export function buildEixample(world) {
   const cos = Math.cos(ang);
   const sin = Math.sin(ang);
   const shape = new THREE.Shape();
-  const c = 0.14;
+  const c = 0.15;
   const pts = [[-0.5 + c, -0.5], [0.5 - c, -0.5], [0.5, -0.5 + c], [0.5, 0.5 - c], [0.5 - c, 0.5], [-0.5 + c, 0.5], [-0.5, 0.5 - c], [-0.5, -0.5 + c]];
   shape.moveTo(pts[0][0], pts[0][1]);
   pts.slice(1).forEach(([x, y]) => shape.lineTo(x, y));
   shape.closePath();
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 1 });
   geo.rotateX(-Math.PI / 2);
-  geo.translate(0, 0, 0);
   geo.computeVertexNormals();
   const colors = ['#e7d7c0', '#d9c3a4', '#f1e6d4', '#c9b294', '#efe4d2'];
   const meshes = colors.map((color) => {
-    const mesh = new THREE.InstancedMesh(geo, mat(color), 280);
+    const mesh = new THREE.InstancedMesh(geo, mat(color), 900);
     mesh.count = 0;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     world.add(mesh);
     return mesh;
   });
+  const walk = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#8a8174'), 2200);
+  const road = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#3c424c'), 2200);
+  walk.count = 0;
+  road.count = 0;
+  world.add(walk, road);
   const step = 133;
+  const block = 108 * U_PER_M;
   const dummy = new THREE.Object3D();
-  const foot = 113 * U_PER_M * 1.45;
+  const avenues = [CITY.axes.granvia, CITY.axes.diagonal, CITY.axes.gracia, CITY.axes.rambla];
+  const cell = (east, north) => {
+    const dx = east * cos + north * sin;
+    const dy = -east * sin + north * cos;
+    return { lat: 41.391 + dy / M_LAT, lng: 2.165 + dx / M_LNG };
+  };
+  const inside = (lat, lng) => lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186
+    && !(lat < 41.383 && lng > 2.16 && lng < 2.182);
   let n = 0;
   for (let ix = -16; ix <= 16; ix++) {
     for (let iy = -14; iy <= 14; iy++) {
-      const east = ix * step;
-      const north = iy * step;
-      const dx = east * cos + north * sin;
-      const dy = -east * sin + north * cos;
-      const lat = 41.391 + dy / M_LAT;
-      const lng = 2.165 + dx / M_LNG;
-      if (lat < 41.374 || lat > 41.406 || lng < 2.144 || lng > 2.186) continue;
-      if (lat < 41.383 && lng > 2.16 && lng < 2.182) continue;
+      const { lat, lng } = cell(ix * step, iy * step);
+      if (!inside(lat, lng)) continue;
       const gnd = sampleGround(lat, lng);
       if (gnd.sea || gnd.park || gnd.beach) continue;
-      const h = (0.16 + ((Math.abs(ix * 7 + iy * 3) % 5) / 5) * 0.34);
+      pave(dummy, walk, road, cell, ix, iy, step, ang);
+      if (blocked(lat, lng, avenues)) continue;
+      const h = (16 + (Math.abs(ix * 7 + iy * 3) % 5) * 3) * U_PER_M;
       placeOn(dummy, lat, lng, gnd.radius, ang);
-      dummy.scale.set(foot, h, foot);
+      dummy.scale.set(block, h, block);
       dummy.updateMatrix();
-      const bucket = Math.abs(ix + iy * 3) % meshes.length;
-      const mesh = meshes[bucket];
+      const mesh = meshes[Math.abs(ix + iy * 3) % meshes.length];
       mesh.setMatrixAt(mesh.count++, dummy.matrix);
       n++;
     }
   }
   meshes.forEach((m) => { m.instanceMatrix.needsUpdate = true; });
+  walk.instanceMatrix.needsUpdate = true;
+  road.instanceMatrix.needsUpdate = true;
   return n;
+}
+
+function blocked(lat, lng, avenues) {
+  for (const m of MONUMENTS) {
+    const span = (SIZE[m.id]?.[0] || 30) / 2 + 14;
+    if (Math.hypot((lat - m.lat) * M_LAT, (lng - m.lng) * M_LNG) < span) return true;
+  }
+  for (const line of avenues) if (nearPoly(lat, lng, line, 78)) return true;
+  for (const line of CITY.tram.tracks) if (nearPoly(lat, lng, line, 16)) return true;
+  return false;
+}
+
+function pave(dummy, walk, road, cell, ix, iy, step, ang) {
+  const segs = [
+    [ix * step, iy * step - step / 2, step, 22],
+    [ix * step + step / 2, iy * step, 22, step],
+  ];
+  for (const [east, north, len, wid] of segs) {
+    const { lat, lng } = cell(east, north);
+    const gnd = sampleGround(lat, lng);
+    if (gnd.sea || gnd.park || !lat) continue;
+    placeOn(dummy, lat, lng, gnd.radius + 0.012, ang);
+    dummy.scale.set(len * U_PER_M, 0.012, wid * U_PER_M);
+    dummy.updateMatrix();
+    walk.setMatrixAt(walk.count++, dummy.matrix);
+    dummy.scale.set((len - 2) * U_PER_M, 0.02, (wid - 6) * U_PER_M);
+    dummy.position.addScaledVector(dummy.userData.normal, 0.008);
+    dummy.updateMatrix();
+    road.setMatrixAt(road.count++, dummy.matrix);
+  }
 }
 
 const _treeDummy = new THREE.Object3D();
