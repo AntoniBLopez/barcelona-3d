@@ -316,7 +316,7 @@ function scatter(world, rings, count, tint) {
     const gnd = sampleGround(lat, lng);
     if (gnd.sea) continue;
     placeOn(_treeDummy, lat, lng, gnd.radius + 0.08, 0);
-    _treeDummy.scale.setScalar(0.7 + Math.random() * 0.8);
+    _treeDummy.scale.setScalar(0.28 + Math.random() * 0.2);
     _treeDummy.updateMatrix();
     trunk.setMatrixAt(trunk.count, _treeDummy.matrix);
     _treeDummy.position.addScaledVector(_treeDummy.userData.normal, 0.12 * _treeDummy.scale.x);

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA, TRENCA_COOL, checkerTexture } from './kit.js';
+import { guell } from './models-guell.js';
 
 const stone = () => mat('#e6d5bc');
 const bone = () => mat('#f4f0e6');
@@ -107,51 +108,6 @@ export function pedrera() {
     g.add(head);
     add(g, cyl(0.02, 0.02, 0.16, 4), stone(), x, 1.95, z);
   });
-  return g;
-}
-
-/** Park Güell: gingerbread lodges, the salamander and the serpentine bench. */
-export function guell() {
-  const g = new THREE.Group();
-  add(g, box(2.4, 0.08, 1.6), mat('#d9c8a4'), 0, 0.04, 0);
-  // Entrance pavilions.
-  for (const side of [-1, 1]) {
-    add(g, box(0.55, 0.42, 0.48), stone(), side * 0.72, 0.28, 0.35);
-    const roof = new THREE.Mesh(mosaic(new THREE.SphereGeometry(0.38, 10, 7, 0, Math.PI * 2, 0, Math.PI / 2), TRENCA), MOSAIC);
-    roof.position.set(side * 0.72, 0.5, 0.35);
-    roof.castShadow = true;
-    g.add(roof);
-    add(g, cyl(0.05, 0.06, 0.35, 6), bone(), side * 0.72, 0.95, 0.35);
-    add(g, box(0.12, 0.16, 0.03), WIN, side * 0.72, 0.28, 0.6);
-  }
-  // Stair and the dragon.
-  add(g, box(0.7, 0.08, 0.55), bone(), 0, 0.16, 0.15);
-  add(g, box(0.5, 0.08, 0.4), bone(), 0, 0.28, -0.05);
-  const dragon = new THREE.Mesh(mosaic(new THREE.SphereGeometry(0.16, 8, 6), TRENCA), MOSAIC);
-  dragon.scale.set(1.7, 0.55, 0.8);
-  dragon.position.set(0, 0.2, 0.42);
-  dragon.castShadow = true;
-  g.add(dragon);
-  add(g, cone(0.05, 0.12, 5), MOSAIC, 0.18, 0.22, 0.55);
-  // Hypostyle hall.
-  for (let x = -2; x <= 2; x++) {
-    for (let z = -2; z <= 1; z++) {
-      add(g, cyl(0.06, 0.075, 0.55, 8), bone(), x * 0.28, 0.55, -0.35 + z * 0.28);
-    }
-  }
-  add(g, box(1.7, 0.08, 1.15), stone(), 0, 0.86, -0.2);
-  // Serpentine bench: a ring of mosaic segments.
-  const benchColors = TRENCA.concat(TRENCA_COOL);
-  for (let i = 0; i < 14; i++) {
-    const a = Math.PI * (0.15 + (i / 13) * 0.7);
-    const x = Math.cos(a) * 0.85;
-    const z = -0.15 - Math.sin(a) * 0.55;
-    const seg = new THREE.Mesh(mosaic(box(0.16, 0.1, 0.22), benchColors), MOSAIC);
-    seg.position.set(x, 0.98, z);
-    seg.rotation.y = -a + Math.PI / 2;
-    seg.castShadow = true;
-    g.add(seg);
-  }
   return g;
 }
 
