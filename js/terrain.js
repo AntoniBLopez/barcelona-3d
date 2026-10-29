@@ -4,7 +4,7 @@ import { CITY } from '../data/city.js';
 import { R, unprojectDir, placeOn, RELIEF, OLAT, OLNG, DEG_PER_M } from './geo.js';
 import { mat } from './kit.js';
 import { buildDistricts } from './districts.js';
-import { buildQuarters } from './quarters.js';
+import { buildFabric } from './fabric.js';
 
 const M_LAT = 111320;
 const M_LNG = 111320 * Math.cos((41.3905 * Math.PI) / 180);
@@ -323,7 +323,7 @@ export function buildTrees(world) {
   scatter(world, CITY.parks.montjuic, 70, '#5d8a40');
   scatter(world, CITY.parks.guell, 36, '#6a9a48');
   buildDistricts(world);
-  buildQuarters(world);
+  buildFabric(world);
 }
 
 export { buildEixample } from './eixample.js';

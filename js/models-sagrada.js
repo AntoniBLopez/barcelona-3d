@@ -1,52 +1,69 @@
 import * as THREE from 'three';
 import { add, box, cyl, cone, mat, watchGlow } from './kit.js';
 
-const beige = () => mat('#e4d0b0', { emissive: '#ffc48a', emissiveIntensity: 0.5 });
-const ochre = () => mat('#b88858', { emissive: '#e09048', emissiveIntensity: 0.62 });
-const bone = () => mat('#f3ecdf');
+const naveStone = () => mat('#c2b096', { emissive: '#c48a58', emissiveIntensity: 0.18 });
+const nativityStone = () => mat('#c98448', { emissive: '#ff9a4a', emissiveIntensity: 0.85 });
+const passionStone = () => mat('#f3f0e8', { emissive: '#d5e2ff', emissiveIntensity: 0.55 });
+const gloryStone = () => mat('#d5dde6', { emissive: '#ffe0a0', emissiveIntensity: 0.45 });
+const evangelistStone = () => mat('#e7d3b0', { emissive: '#ffd7a4', emissiveIntensity: 0.4 });
 const craneY = () => mat('#e2b423', { roughness: 0.45, metalness: 0.2 });
 const craneW = () => mat('#f7f8f6', { roughness: 0.5 });
 
 const TIPS = [
-  mat('#d24a3a', { emissive: '#e85a40', emissiveIntensity: 1.8 }),
-  mat('#e2b423', { emissive: '#f0c84a', emissiveIntensity: 1.7 }),
-  mat('#f6f3ec', { emissive: '#fff6e0', emissiveIntensity: 1.5 }),
+  mat('#d24a3a', { emissive: '#ff5a40', emissiveIntensity: 2.4 }),
+  mat('#e2b423', { emissive: '#ffe06a', emissiveIntensity: 2.2 }),
+  mat('#f6f3ec', { emissive: '#fff6e0', emissiveIntensity: 1.8 }),
 ];
 const GLASS = [
-  mat('#c4483a', { emissive: '#e25848', emissiveIntensity: 2.4, roughness: 0.3 }),
-  mat('#3a6eb8', { emissive: '#4a88e8', emissiveIntensity: 2.4, roughness: 0.3 }),
-  mat('#d4a03a', { emissive: '#f0c060', emissiveIntensity: 2.0, roughness: 0.3 }),
-  mat('#2d8a62', { emissive: '#3cb888', emissiveIntensity: 2.0, roughness: 0.3 }),
+  mat('#c4483a', { emissive: '#ff6848', emissiveIntensity: 2.8, roughness: 0.3 }),
+  mat('#3a6eb8', { emissive: '#6aa0ff', emissiveIntensity: 2.6, roughness: 0.3 }),
+  mat('#d4a03a', { emissive: '#ffd060', emissiveIntensity: 2.4, roughness: 0.3 }),
+  mat('#2d8a62', { emissive: '#4ad090', emissiveIntensity: 2.2, roughness: 0.3 }),
 ];
-const STAR = mat('#f4f8ff', { emissive: '#ffffff', emissiveIntensity: 4.6, roughness: 0.15 });
-const CROSS = mat('#fff8ea', { emissive: '#fff2cc', emissiveIntensity: 3.8, roughness: 0.25 });
-const WASH = new THREE.MeshBasicMaterial({
-  color: '#ffb56a',
-  transparent: true,
-  blending: THREE.AdditiveBlending,
-  depthWrite: false,
-  side: THREE.DoubleSide,
-});
-watchGlow(WASH, 0.62, true);
+const STAR = mat('#f4f8ff', { emissive: '#ffffff', emissiveIntensity: 6, roughness: 0.12 });
+const CROSS = mat('#fff8ea', { emissive: '#fff4c8', emissiveIntensity: 5.5, roughness: 0.2 });
+const SLOT = mat('#2a241c');
+
+function wash(color, amount) {
+  const m = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  return watchGlow(m, amount, true);
+}
+const WASH_WARM = wash('#ffb15a', 0.4);
+const WASH_COOL = wash('#e7eeff', 0.28);
+const WASH_GOLD = wash('#ffd27a', 0.36);
 
 const SPINDLE = spindle();
 
-/** Sagrada Família in 2026, in metres. +X east (Nativity), −X west (Passion), +Z south (Glory). */
+/**
+ * Sagrada Família, metres. +X east is the Nativity, −X west the Passion,
+ * +Z south the Glory façade. The Jesus tower tops out at 172 m.
+ */
 export function sagrada() {
   const g = new THREE.Group();
   nave(g);
+  nativity(g);
+  passion(g);
+  glory(g);
   apostles(g);
   evangelists(g);
   mary(g);
   jesus(g);
   cranes(g);
   const lamps = [
-    light(g, 0, 8, 58, '#ffc48a'),
-    light(g, 48, 10, 2, '#ffd2a4'),
-    light(g, -48, 10, 2, '#ffd2a4'),
+    light(g, 36, 42, 2, '#ffb06a'),
+    light(g, -36, 42, 2, '#d5e4ff'),
+    light(g, 0, 36, 40, '#ffd090'),
+    light(g, 0, 120, 6, '#fff0c8'),
+    light(g, 0, 158, 0, '#fff6d0'),
   ];
   g.userData.animate = (_t, k) => {
-    for (const lamp of lamps) lamp.intensity = 0.02 * k;
+    for (const lamp of lamps) lamp.intensity = 0.42 * k;
   };
   return g;
 }
@@ -56,191 +73,176 @@ function spindle() {
   for (let i = 0; i <= 8; i++) {
     const t = i / 8;
     let r = 1.05;
-    if (t < 0.2) r = 0.62 + t * 2.2;
-    else if (t > 0.42) r = 1.05 * (1 - (t - 0.42) / 0.7);
-    pts.push(new THREE.Vector2(Math.max(0.12, r), t));
+    if (t < 0.2) r = 0.72 + t * 1.8;
+    else if (t > 0.42) r = 1.05 * (1 - (t - 0.42) / 0.72);
+    pts.push(new THREE.Vector2(Math.max(0.14, r), t));
   }
   return new THREE.LatheGeometry(pts, 7);
 }
 
 function nave(g) {
-  const st = beige();
-  add(g, box(36, 36, 78), st, 0, 18, -6);
-  add(g, box(70, 32, 28), st, 0, 16, 2);
-  add(g, cyl(16, 16, 32, 8), st, 0, 16, -42);
-  nativity(g);
-  passion(g);
-  glory(g);
-  forest(g);
-  glass(g);
-  add(g, box(30, 22, 0.6), WASH, 0, 12, 16.4);
-  add(g, box(0.6, 24, 30), WASH, 24.2, 14, 2);
-  add(g, box(0.6, 24, 30), WASH, -26.4, 14, 2);
+  const st = naveStone();
+  add(g, box(34, 14, 52), st, 0, 7, -2);
+  add(g, box(52, 12, 20), st, 0, 6, 2);
+  add(g, cyl(12, 12, 14, 8), st, 0, 7, -28);
+}
+
+function shaft(g, geo, material, x, y, z) {
+  const mesh = add(g, geo, material, x, y, z);
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  return mesh;
 }
 
 function nativity(g) {
-  const skin = ochre();
-  for (const z of [-10, -1, 8, 16]) {
-    add(g, new THREE.SphereGeometry(3.4, 6, 5), skin, 30, 16, z);
-    add(g, new THREE.SphereGeometry(2.2, 5, 4), skin, 33, 24, z);
-    add(g, box(2.4, 14, 4.2), mat('#9a6840'), 34, 8, z);
+  const skin = nativityStone();
+  add(g, box(4, 36, 40), skin, 24, 18, 0);
+  for (const z of [-14, -4, 6, 16]) {
+    add(g, new THREE.SphereGeometry(3.2, 6, 5), skin, 28, 16, z);
+    add(g, new THREE.SphereGeometry(2.1, 5, 4), skin, 30, 24, z);
+    add(g, box(1.6, 18, 2.4), SLOT, 26.2, 14, z);
   }
-  add(g, cone(4.2, 26, 7), mat('#1e5a32'), 40, 32, 10);
-  add(g, cone(2.8, 16, 6), mat('#2f7a44'), 40, 48, 10);
-  add(g, cone(1.5, 9, 5), mat('#49a060'), 40, 58, 10);
+  add(g, cone(3.6, 22, 7), mat('#1e5a32'), 33, 28, 8);
+  add(g, cone(2.4, 14, 6), mat('#2f7a44'), 33, 44, 8);
+  add(g, cone(1.3, 8, 5), mat('#49a060'), 33, 54, 8);
+  shaft(g, cone(3.2, 36, 5), WASH_WARM, 34, 28, -12);
+  shaft(g, cone(3.2, 36, 5), WASH_WARM, 34, 28, 12);
 }
 
 function passion(g) {
-  for (const z of [-14, -5, 4, 13]) {
-    const col = add(g, box(2.2, 36, 2.2), bone(), -46, 18, z);
-    col.rotation.z = 0.16;
-    const rib = add(g, box(0.8, 30, 4.2), bone(), -42, 20, z);
-    rib.rotation.z = -0.34;
+  const skin = passionStone();
+  add(g, box(3.2, 40, 40), skin, -24, 20, 0);
+  for (const z of [-14, -4, 6, 16]) {
+    const col = add(g, box(1.6, 38, 1.6), skin, -32, 19, z);
+    col.rotation.z = 0.18;
+    const rib = add(g, box(0.7, 32, 3.4), skin, -29, 20, z);
+    rib.rotation.z = -0.38;
+    add(g, box(1.4, 16, 1.2), SLOT, -25.6, 16, z);
   }
+  shaft(g, cone(2.8, 40, 5), WASH_COOL, -36, 30, -12);
+  shaft(g, cone(2.8, 40, 5), WASH_COOL, -36, 30, 12);
 }
 
 function glory(g) {
-  add(g, box(26, 20, 1.2), mat('#d5dbe2'), 0, 12, 37);
-  for (const x of [-10, -4, 2, 8]) add(g, box(0.5, 26, 0.5), mat('#c5ced6'), x, 13, 38);
-  for (const y of [6, 14, 22]) add(g, box(24, 0.35, 0.35), mat('#c5ced6'), 0, y, 38.2);
-}
-
-function forest(g) {
-  const branch = mat('#f4ecdf');
-  for (let i = 0; i < 5; i++) {
-    const z = -24 + i * 9;
-    for (const x of [-8, 8]) {
-      add(g, cyl(0.7, 1.05, 12, 5), branch, x, 40, z);
-      add(g, cyl(0.35, 0.5, 7, 4), branch, x - 2.4, 46, z);
-      add(g, cyl(0.35, 0.5, 7, 4), branch, x + 2.4, 46, z);
-    }
-  }
-}
-
-function glass(g) {
-  let n = 0;
-  for (const z of [-28, -16, -4, 8]) {
-    add(g, box(0.6, 10, 3.2), GLASS[n % 4], 18.2, 20, z);
-    add(g, box(0.6, 10, 3.2), GLASS[(n + 2) % 4], -18.2, 20, z);
-    n += 1;
-  }
-  for (const x of [-18, -6, 6, 18]) add(g, box(3.4, 11, 0.7), GLASS[n++ % 4], x, 17, 16.6);
-  rose(g, 0, 18, 17.2, 0);
-  rose(g, 35.5, 16, 4, Math.PI / 2);
-}
-
-function rose(g, x, y, z, ry) {
-  for (let i = 0; i < 6; i++) {
-    const pane = add(g, box(2.2, 3.4, 0.45), GLASS[i % 4], x, y, z);
-    pane.rotation.y = ry;
-    pane.position.x += Math.cos(ry) * Math.cos(i) * 2.4;
-    pane.position.z += -Math.sin(ry) * Math.cos(i) * 2.4;
-    pane.position.y += Math.sin(i) * 2.2;
-  }
+  const skin = gloryStone();
+  add(g, box(40, 34, 3.4), skin, 0, 17, 22);
+  for (const x of [-14, -5, 4, 13]) add(g, box(1.5, 22, 1.2), SLOT, x, 14, 23.6);
+  for (const x of [-12, -4, 4, 12]) add(g, box(0.45, 28, 0.45), mat('#b7c2cc'), x, 16, 24.2);
+  for (const y of [8, 16, 24]) add(g, box(32, 0.4, 0.4), mat('#b7c2cc'), 0, y, 24.4);
+  for (const x of [-10, 0, 10]) add(g, box(3.2, 8, 0.6), GLASS[Math.abs(x) % 4], x, 18, 24.2);
+  shaft(g, cone(3.4, 44, 5), WASH_GOLD, -14, 32, 32);
+  shaft(g, cone(3.4, 44, 5), WASH_GOLD, 14, 32, 32);
 }
 
 function apostles(g) {
-  const zs = [-8, 0, 8, 16];
-  const heights = [104, 116, 116, 104];
-  zs.forEach((z, i) => tower(g, 38, z, heights[i], ochre(), i));
-  zs.forEach((z, i) => tower(g, -38, z, heights[i], beige(), i + 1));
-  [-16, -6, 6, 16].forEach((x, i) => tower(g, x, 44, heights[i], beige(), i + 2));
+  const zs = [-22, -8, 8, 22];
+  const heights = [98, 112, 112, 98];
+  zs.forEach((z, i) => tower(g, 46, z, heights[i], nativityStone(), i, WASH_WARM));
+  zs.forEach((z, i) => tower(g, -46, z, heights[i], passionStone(), i + 1, WASH_COOL));
+  [-22, -8, 8, 22].forEach((x, i) => tower(g, x, 44, heights[i], gloryStone(), i + 2, WASH_GOLD));
 }
 
-function tower(g, x, z, h, skin, tip) {
+function tower(g, x, z, h, skin, tip, glow) {
   const mesh = new THREE.Mesh(SPINDLE, skin);
-  mesh.scale.set(4.1, h, 4.1);
+  mesh.scale.set(4.3, h, 4.3);
   mesh.position.set(x, 0, z);
+  mesh.castShadow = true;
   g.add(mesh);
-  for (const a of [0.3, 1.6, 2.8, 4.2, 5.4]) {
-    add(g, box(0.7, h * 0.18, 0.45), mat('#241e1a'), x + Math.cos(a) * 3.8, h * 0.42, z + Math.sin(a) * 3.8);
+  for (const a of [0.4, 2.0, 3.5, 5.0]) {
+    add(g, box(0.7, h * 0.16, 0.4), SLOT, x + Math.cos(a) * 3.6, h * 0.45, z + Math.sin(a) * 3.6);
   }
-  const ph = 12;
+  const ph = 11;
   const color = TIPS[tip % 3];
-  add(g, cone(2.6, ph, 6), color, x, h + ph / 2, z);
+  add(g, cone(2.4, ph, 6), color, x, h + ph / 2, z);
   for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2;
-    add(g, box(1.1, 1.3, 1.1), TIPS[(tip + i) % 3], x + Math.cos(a) * 1.8, h + 1.2, z + Math.sin(a) * 1.8);
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    add(g, box(1.15, 1.4, 1.15), TIPS[(tip + i) % 3], x + Math.cos(a) * 1.7, h + 1.4, z + Math.sin(a) * 1.7);
   }
-  add(g, box(0.55, 4.2, 0.55), color, x, h + ph + 1.6, z);
-  add(g, box(2.4, 0.45, 0.45), color, x, h + ph + 2.8, z);
+  add(g, box(0.5, 4, 0.5), color, x, h + ph + 1.4, z);
+  add(g, box(2.2, 0.42, 0.42), color, x, h + ph + 2.6, z);
+  shaft(g, box(1.1, h * 0.72, 1.1), glow, x + (x > 0 ? 3.2 : x < 0 ? -3.2 : 0), h * 0.4, z + (x === 0 ? 3.2 : 0));
 }
 
 function evangelists(g) {
-  const spots = [[14, 12, 'bull'], [14, -10, 'angel'], [-14, 12, 'eagle'], [-14, -10, 'lion']];
+  const spots = [[16, 12, 'bull'], [16, -14, 'angel'], [-16, 12, 'eagle'], [-16, -14, 'lion']];
   for (const [x, z, kind] of spots) {
-    const h = 132;
-    add(g, cyl(4.2, 5.2, h, 8), beige(), x, h / 2, z);
-    add(g, box(10, 3.2, 10), mat(kind === 'lion' ? '#e2b423' : kind === 'bull' ? '#8a5a32' : '#f7f4ee'), x, h + 2, z);
-    symbol(g, kind, x, h + 9, z);
+    const h = 128;
+    add(g, cyl(3.8, 4.8, h, 8), evangelistStone(), x, h / 2, z);
+    add(g, box(9, 2.8, 9), mat(kind === 'lion' ? '#e2b423' : kind === 'bull' ? '#8a5a32' : '#f4efe4'), x, h + 1.6, z);
+    for (const a of [0.6, 2.2, 3.8, 5.2]) {
+      add(g, box(0.55, 10, 0.4), SLOT, x + Math.cos(a) * 4.4, h * 0.55, z + Math.sin(a) * 4.4);
+    }
+    symbol(g, kind, x, h + 8, z);
   }
 }
 
 function symbol(g, kind, x, y, z) {
   if (kind === 'bull') {
-    const c = mat('#8a5a32');
-    add(g, box(8, 3.2, 3.4), c, x, y, z);
-    add(g, box(3.2, 2.4, 3), c, x, y + 1.6, z + 2.8);
-    add(g, box(0.55, 3.4, 0.55), c, x - 1, y + 4.4, z + 3.6);
-    add(g, box(0.55, 3.4, 0.55), c, x + 1, y + 4.4, z + 3.6);
+    const c = mat('#8a5a32', { emissive: '#c4844a', emissiveIntensity: 0.4 });
+    add(g, box(7, 2.8, 3), c, x, y, z);
+    add(g, box(2.8, 2.2, 2.6), c, x, y + 1.4, z + 2.4);
+    add(g, box(0.5, 3, 0.5), c, x - 0.8, y + 3.8, z + 3.2);
+    add(g, box(0.5, 3, 0.5), c, x + 0.8, y + 3.8, z + 3.2);
   } else if (kind === 'lion') {
-    const c = mat('#e2b423', { emissive: '#e2b423', emissiveIntensity: 0.55 });
-    add(g, box(8, 3, 3.2), c, x, y, z);
-    add(g, new THREE.SphereGeometry(2.4, 6, 5), c, x, y + 2.6, z + 2);
+    const c = mat('#e2b423', { emissive: '#ffd060', emissiveIntensity: 0.8 });
+    add(g, box(7, 2.6, 2.8), c, x, y, z);
+    add(g, new THREE.SphereGeometry(2.1, 6, 5), c, x, y + 2.2, z + 1.8);
   } else if (kind === 'eagle') {
-    const c = bone();
-    add(g, box(2.2, 2.6, 4.2), c, x, y, z);
-    add(g, box(12, 0.7, 3.4), c, x, y + 1.1, z);
-    add(g, box(1.6, 1.1, 2.2), c, x, y + 2, z + 2.6);
+    const c = mat('#f7f4ee', { emissive: '#fff6e8', emissiveIntensity: 0.45 });
+    add(g, box(2, 2.4, 3.6), c, x, y, z);
+    add(g, box(11, 0.6, 3), c, x, y + 1, z);
+    add(g, box(1.4, 1, 2), c, x, y + 1.8, z + 2.2);
   } else {
-    const c = mat('#f7f1e4', { emissive: '#fff6e0', emissiveIntensity: 0.45 });
-    add(g, box(1.8, 5.4, 1.4), c, x, y, z);
-    add(g, new THREE.SphereGeometry(1.3, 6, 5), c, x, y + 3.4, z);
-    add(g, box(9, 0.5, 2.4), c, x, y + 1.6, z);
+    const c = mat('#f7f1e4', { emissive: '#fff6e0', emissiveIntensity: 0.7 });
+    add(g, box(1.6, 4.8, 1.2), c, x, y, z);
+    add(g, new THREE.SphereGeometry(1.2, 6, 5), c, x, y + 3, z);
+    add(g, box(8, 0.45, 2.2), c, x, y + 1.4, z);
   }
 }
 
 function mary(g) {
-  add(g, cyl(4.2, 5.4, 122, 8), beige(), 0, 61, -30);
-  add(g, cyl(2.8, 3.6, 16, 8), beige(), 0, 128, -30);
-  const y = 146;
-  add(g, new THREE.SphereGeometry(2.6, 8, 6), STAR, 0, y, -30);
+  const skin = nativityStone();
+  add(g, cyl(3.6, 4.6, 116, 8), skin, 0, 58, -32);
+  add(g, cyl(2.2, 3.1, 14, 8), skin, 0, 123, -32);
+  const y = 138;
+  add(g, new THREE.SphereGeometry(2.4, 8, 6), STAR, 0, y, -32);
   for (let i = 0; i < 12; i++) {
-    const ray = add(g, box(0.7, 14, 1.15), STAR, 0, y, -30);
+    const ray = add(g, box(0.55, 13, 1.05), STAR, 0, y, -32);
     ray.rotation.z = (i / 12) * Math.PI;
-    ray.rotation.y = i % 2 ? 0.6 : 0;
+    ray.rotation.y = i % 2 ? 0.55 : 0;
   }
+  shaft(g, cone(3.2, 36, 6), WASH_WARM, 0, 120, -26);
 }
 
 function jesus(g) {
-  add(g, cyl(7, 9, 150, 10), beige(), 0, 75, 0);
-  add(g, cyl(4.6, 6.2, 16, 8), beige(), 0, 156, 0);
-  for (let i = 0; i < 5; i++) {
-    const y = 36 + i * 22;
-    add(g, box(0.7, 9, 3.2), GLASS[i % 4], 8.6, y, 0);
-    add(g, box(3.2, 9, 0.7), GLASS[(i + 2) % 4], 0, y + 8, 8.6);
+  const skin = evangelistStone();
+  add(g, cyl(5.4, 7.4, 140, 10), skin, 0, 70, 0);
+  add(g, cyl(3.4, 4.8, 16, 8), skin, 0, 148, 0);
+  for (let i = 0; i < 6; i++) {
+    const y = 28 + i * 18;
+    add(g, box(0.7, 8, 2.6), GLASS[i % 4], 6.6, y, 0);
+    add(g, box(2.6, 8, 0.7), GLASS[(i + 1) % 4], 0, y + 6, 6.6);
   }
-  add(g, box(2.6, 24, 2.6), CROSS, 0, 170, 0);
-  add(g, box(18, 2.4, 2.4), CROSS, 0, 176, 0);
-  add(g, box(2.4, 2.4, 18), CROSS, 0, 176, 0);
+  add(g, box(2.4, 18, 2.4), CROSS, 0, 163, 0);
+  add(g, box(16, 2.3, 2.3), CROSS, 0, 166, 0);
+  add(g, box(2.3, 2.3, 14), CROSS, 0, 166, 0);
+  shaft(g, cone(2.6, 64, 6), WASH_GOLD, 0, 108, 8);
 }
 
 function cranes(g) {
-  boom(g, 8, 52, 78, 30);
-  boom(g, -18, 54, 92, 34);
-  boom(g, 22, 46, 64, 22);
+  boom(g, 10, 58, 46, 18);
+  boom(g, -14, 56, 52, 20);
 }
 
 function boom(g, x, z, h, reach) {
-  add(g, cyl(0.85, 1.05, h, 5), craneY(), x, h / 2, z);
-  add(g, box(reach, 0.7, 0.7), craneY(), x + reach * 0.28, h, z);
-  add(g, box(0.45, 0.45, 8), craneW(), x + reach * 0.12, h + 0.9, z);
-  add(g, box(2.6, 1.8, 2), craneW(), x, h - 2.4, z);
-  add(g, cyl(0.14, 0.14, 16, 4), mat('#3a3a3a'), x + reach * 0.55, h - 8, z);
+  add(g, cyl(0.7, 0.9, h, 5), craneY(), x, h / 2, z);
+  add(g, box(reach, 0.6, 0.6), craneY(), x + reach * 0.28, h, z);
+  add(g, box(0.4, 0.4, 6), craneW(), x + reach * 0.1, h + 0.7, z);
+  add(g, box(2.2, 1.5, 1.6), craneW(), x, h - 2, z);
 }
 
 function light(g, x, y, z, color) {
-  const lamp = new THREE.PointLight(color, 0, 0.16, 2);
+  const lamp = new THREE.PointLight(color, 0, 0.2, 2);
   lamp.position.set(x, y, z);
   g.add(lamp);
   return lamp;

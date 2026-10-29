@@ -127,9 +127,106 @@ function shavePlaza(poly) {
   }
   return parts;
 }
+const DIAG_MARGIN = 34;
+
+function nearestOn(px, py, line) {
+  let best = Infinity;
+  let sd = 0;
+  let nx = 0;
+  let ny = 1;
+  let fx = px;
+  let fy = py;
+  for (let i = 0; i < line.length - 1; i++) {
+    const ax = line[i][0];
+    const ay = line[i][1];
+    const bx = line[i + 1][0];
+    const by = line[i + 1][1];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy || 1;
+    const len = Math.sqrt(len2);
+    let t = ((px - ax) * dx + (py - ay) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const qx = ax + dx * t;
+    const qy = ay + dy * t;
+    const d = Math.hypot(px - qx, py - qy);
+    if (d < best) {
+      best = d;
+      nx = -dy / len;
+      ny = dx / len;
+      sd = (px - ax) * nx + (py - ay) * ny;
+      fx = qx;
+      fy = qy;
+    }
+  }
+  return { d: best, sd, nx, ny, fx, fy };
+}
+
+function keepBlock(poly) {
+  if (!poly || poly.length < 4) return false;
+  const a = Math.abs(area(poly));
+  if (a < 1400) return false;
+  let per = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const q = poly[(i + 1) % poly.length];
+    per += Math.hypot(poly[i][0] - q[0], poly[i][1] - q[1]);
+  }
+  return per > 0 && (2 * a) / per > 18;
+}
+
+/** Chamfer the two corners where a block was cut parallel to the avenue. */
+function chamferAvenue(poly, ox, oy, nx, ny) {
+  const on = poly.map(([x, y]) => Math.abs((x - ox) * nx + (y - oy) * ny) < 2.5);
+  if (!on.some(Boolean)) return poly;
+  const out = [];
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const cur = poly[i];
+    const prev = poly[(i + n - 1) % n];
+    const next = poly[(i + 1) % n];
+    const prevOn = on[(i + n - 1) % n];
+    const nextOn = on[(i + 1) % n];
+    if (!(on[i] && prevOn !== nextOn)) { out.push(cur); continue; }
+    const pull = (to) => {
+      const dx = to[0] - cur[0];
+      const dy = to[1] - cur[1];
+      const len = Math.hypot(dx, dy) || 1;
+      const d = Math.min(12, len * 0.42);
+      return [cur[0] + (dx / len) * d, cur[1] + (dy / len) * d];
+    };
+    out.push(pull(prev), pull(next));
+  }
+  return clean(out);
+}
+
+/**
+ * Blocks beside the Diagonal become one trapezoid, offset to the sidewalk.
+ * The side the centroid sits on is kept; the avenue itself is left empty.
+ */
+function clipDiagonal(poly) {
+  const [cx, cy] = centroid(poly);
+  const info = nearestOn(cx, cy, DIAG);
+  if (info.d > 100) return [poly];
+  if (Math.abs(info.sd) < 16) return [];
+  let near = false;
+  for (const p of poly) {
+    if (nearestOn(p[0], p[1], DIAG).d < DIAG_MARGIN) { near = true; break; }
+  }
+  if (!near) return [poly];
+  const sign = info.sd >= 0 ? 1 : -1;
+  const ox = info.fx + info.nx * sign * DIAG_MARGIN;
+  const oy = info.fy + info.ny * sign * DIAG_MARGIN;
+  const cut = chamferAvenue(
+    clipHalf(poly, ox, oy, info.nx * sign, info.ny * sign),
+    ox, oy, info.nx * sign, info.ny * sign,
+  );
+  return keepBlock(cut) ? [cut] : [];
+}
+
 function carve(poly) {
-  let parts = [poly];
+  let parts = clipDiagonal(poly);
   for (const ave of AVENUES) {
+    if (ave.line === DIAG) continue;
     for (let i = 0; i < ave.line.length - 1; i++) {
       const [ax, ay] = ave.line[i];
       const [bx, by] = ave.line[i + 1];
@@ -137,12 +234,18 @@ function carve(poly) {
       for (const part of parts) {
         const [cx, cy] = centroid(part);
         if (distSeg(cx, cy, ax, ay, bx, by) > 76 + ave.half) next.push(part);
-        else next.push(...subtractRect(part, ax, ay, bx, by, ave.half));
+        else next.push(...subtractRect(part, ax, ay, bx, by, ave.half).filter(keepBlock));
       }
       parts = next;
     }
   }
-  return parts.flatMap(shavePlaza);
+  return parts.flatMap(shavePlaza).filter(keepBlock);
+}
+
+/** The Cerdà grid, rotated with Gran Via: Eixample proper, not a lat/lng square. */
+export function inEixampleGrid(lat, lng) {
+  const [e, n] = toEN(lng, lat);
+  return e >= -960 && e <= 1040 && n >= -2280 && n <= 2420;
 }
 function nearPoly(lat, lng, line, limit) {
   const x = lng * M_LNG;
@@ -185,6 +288,7 @@ function bake(poly, height, bucket) {
   const gnd = sampleGround(lat, lng);
   if (gnd.sea || gnd.park || gnd.beach || !onLand(lat, lng)) return;
   if (poly.some(([e, n]) => !onLand(toLL(e, n)[1], toLL(e, n)[0], 8))) return;
+  if (poly.some(([e, n]) => nearestOn(e, n, DIAG).d < 31)) return;
   const pts = poly.map(([e, n]) => new THREE.Vector2((e - cx) * U_PER_M, -(n - cy) * U_PER_M));
   const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: height, bevelEnabled: false, curveSegments: 1 });
   geo.rotateX(-Math.PI / 2);
@@ -219,13 +323,7 @@ function disc(group, lat, lng, radius, color, lift) {
 export function buildEixample(world) {
   const colors = ['#e7d7c0', '#d9c3a4', '#f1e6d4', '#c9b294', '#efe4d2'];
   const buckets = colors.map(() => []);
-  const inside = (lat, lng) => {
-    const ciutat = lat < 41.383 && lng > 2.16 && lng < 2.182;
-    const gracia = lat > 41.4002 && lng > 2.146 && lng < 2.166;
-    const classic = lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186;
-    const corridor = nearPoly(lat, lng, CITY.axes.diagonal, 155);
-    return (classic || corridor) && !ciutat && !gracia;
-  };
+  const inside = (lat, lng) => inEixampleGrid(lat, lng);
   for (let ix = -24; ix <= 14; ix++) {
     for (let iy = -34; iy <= 38; iy++) {
       const east = ix * STEP;
