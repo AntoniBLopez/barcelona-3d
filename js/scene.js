@@ -198,18 +198,25 @@ export async function createScene(canvas, hooks) {
     const overhead = m.id === 'guell';
     const basilica = m.id === 'sagrada';
     const bowl = m.id === 'campnou';
-    const view = n.clone().multiplyScalar(basilica ? 0.36 : bowl ? 0.8 : overhead ? 0.92 : 0.55)
-      .add(south.clone().multiplyScalar(basilica ? 0.84 : bowl ? 0.5 : overhead ? 0.4 : 0.78))
-      .add(east.clone().multiplyScalar(basilica ? 0.42 : bowl ? 0.28 : 0.2))
-      .normalize();
+    const street = m.id === 'batllo';
+    const front = new THREE.Vector3(0, 0, 1).applyQuaternion(m.obj.quaternion);
+    const view = street
+      ? n.clone().multiplyScalar(0.42).add(front.multiplyScalar(0.9)).normalize()
+      : n.clone().multiplyScalar(basilica ? 0.36 : bowl ? 0.8 : overhead ? 0.92 : 0.55)
+        .add(south.clone().multiplyScalar(basilica ? 0.84 : bowl ? 0.5 : overhead ? 0.4 : 0.78))
+        .add(east.clone().multiplyScalar(basilica ? 0.42 : bowl ? 0.28 : 0.2))
+        .normalize();
     const h = m.worldH || 0.08;
-    const lift = basilica ? 0.52 : bowl ? 0.25 : 0.45;
-    const focus = n.clone().multiplyScalar(m.base + h * lift).add(east.clone().multiplyScalar(Math.min(0.55, h * 1.2)));
+    const lift = basilica ? 0.52 : bowl ? 0.25 : street ? 0.55 : 0.45;
+    const shift = street ? 0.08 : Math.min(0.55, h * 1.2);
+    const focus = n.clone().multiplyScalar(m.base + h * lift).add(east.clone().multiplyScalar(shift));
     const dist = m.id === 'sagrada'
       ? 2.6
       : bowl
         ? 2.55
-        : Math.min(9, Math.max(2.5, h * 7 + (m.worldSpan || h) * 3.2));
+        : street
+          ? 2.5
+          : Math.min(9, Math.max(2.5, h * 7 + (m.worldSpan || h) * 3.2));
     rig.flyTo(view, dist * (innerWidth > 860 ? 1 : 1.25), focus, 1700);
     ring.position.set(0, 0.02, 0);
     ring.scale.setScalar(Math.max(0.05, (m.worldSpan || 0.2) * 0.62));

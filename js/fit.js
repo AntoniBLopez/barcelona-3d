@@ -5,7 +5,7 @@ import { U_PER_M } from './geo.js';
 export const SIZE = {
   sagrada: [110, 192],
   guell: [150, 42],
-  batllo: [26, 32],
+  batllo: [38, 46],
   pedrera: [42, 30],
   vicens: [22, 18],
   palauguell: [26, 26],
@@ -38,7 +38,8 @@ export const SIZE = {
 };
 
 /** Local +Z is south, so the sail's face looks out over the port. */
-export const YAW = {};
+/** Casa Batlló's facade looks northeast, onto Passeig de Gràcia. */
+export const YAW = { batllo: 2.32 };
 
 const box = new THREE.Box3();
 const size = new THREE.Vector3();

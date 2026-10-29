@@ -1,45 +1,12 @@
 import * as THREE from 'three';
-import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA, TRENCA_COOL, checkerTexture } from './kit.js';
+import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA, checkerTexture } from './kit.js';
 import { guell } from './models-guell.js';
 import { sagrada } from './models-sagrada.js';
+import { batllo } from './models-batllo.js';
 
 const stone = () => mat('#e6d5bc');
 const bone = () => mat('#f4f0e6');
 const iron = () => mat('#2c3138', { roughness: 0.45, metalness: 0.35 });
-
-/** Casa Batlló: bone balconies, a dragon-scale roof and the four-armed cross. */
-export function batllo() {
-  const g = new THREE.Group();
-  add(g, box(1.35, 0.12, 0.7), stone(), 0, 0.06, 0);
-  for (let i = 0; i < 5; i++) {
-    const y = 0.28 + i * 0.28;
-    const wave = Math.sin(i * 0.9) * 0.06;
-    add(g, box(1.22, 0.24, 0.58), i === 0 ? mat('#c9b59a') : bone(), 0, y, wave);
-    for (const x of [-0.42, 0, 0.42]) {
-      add(g, box(0.16, 0.12, 0.03), WIN, x, y, 0.31 + wave);
-      const mask = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.028, 5, 8), bone());
-      mask.position.set(x, y - 0.02, 0.34 + wave);
-      mask.castShadow = true;
-      g.add(mask);
-    }
-  }
-  const roof = new THREE.Mesh(
-    mosaic(new THREE.SphereGeometry(0.78, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), TRENCA_COOL),
-    MOSAIC,
-  );
-  roof.scale.set(1.15, 0.55, 0.85);
-  roof.position.set(0.05, 1.85, 0);
-  roof.castShadow = true;
-  g.add(roof);
-  // Tower and cross of the roof.
-  add(g, cyl(0.1, 0.12, 0.55, 8), mat('#d7c4a4'), 0.48, 1.9, 0.05);
-  const bulb = new THREE.Mesh(mosaic(new THREE.SphereGeometry(0.14, 8, 6), TRENCA), MOSAIC);
-  bulb.position.set(0.48, 2.28, 0.05);
-  g.add(bulb);
-  add(g, box(0.05, 0.28, 0.05), bone(), 0.48, 2.55, 0.05);
-  add(g, box(0.22, 0.045, 0.045), bone(), 0.48, 2.62, 0.05);
-  return g;
-}
 
 /** La Pedrera: an undulating stone cliff and the rooftop warriors. */
 export function pedrera() {
