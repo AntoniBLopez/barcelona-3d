@@ -157,10 +157,24 @@ body.panel-open .hero, body.panel-open .credit { opacity: 0; pointer-events: non
   bottom: calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 8px; flex-wrap: wrap; max-width: 70vw;
 }
 .tools button {
+  position: relative;
   width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center;
 }
 .tools button[aria-pressed="true"] { color: var(--accent); }
 .tools svg { width: 22px; height: 22px; }
+.tools button::after {
+  content: attr(data-tip);
+  position: absolute; left: 50%; bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(3px);
+  padding: 4px 8px; border-radius: 8px; white-space: nowrap;
+  background: var(--card-solid); color: var(--ink); border: 1px solid var(--line);
+  box-shadow: var(--shadow); font-size: 12px; font-weight: 600; letter-spacing: 0.01em;
+  opacity: 0; pointer-events: none;
+  transition: opacity .1s ease, transform .1s ease;
+}
+.tools button:hover::after, .tools button:focus-visible::after {
+  opacity: 1; transform: translateX(-50%) translateY(0); transition-delay: .08s;
+}
 .keys {
   position: fixed; z-index: 4; left: max(16px, env(safe-area-inset-left));
   bottom: calc(76px + env(safe-area-inset-bottom));

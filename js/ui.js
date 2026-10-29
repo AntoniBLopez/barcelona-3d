@@ -67,6 +67,13 @@ function buildLists() {
   }
 }
 
+function labelTip(id, key) {
+  const el = $(id);
+  const label = t(key);
+  el.dataset.tip = label;
+  el.setAttribute('aria-label', label);
+}
+
 export function renderTexts() {
   const lang = getLang();
   document.documentElement.lang = lang;
@@ -75,10 +82,12 @@ export function renderTexts() {
   $('lang-name').textContent = t('langName');
   $('list-title').textContent = gaudiOnly ? t('listGaudi', { n: cycle().length }) : t('list', { n: MONUMENTS.length });
   $('scene').setAttribute('aria-label', t('canvas'));
-  $('t-night').setAttribute('aria-label', night ? t('day') : t('night'));
-  $('t-spin').setAttribute('aria-label', spinOn ? t('pause') : t('resume'));
-  $('t-tram').setAttribute('aria-label', t('layerTram'));
-  $('t-metro').setAttribute('aria-label', t('layerMetro'));
+  labelTip('t-keys', 'tipKeys');
+  labelTip('t-home', 'tipHome');
+  labelTip('t-night', night ? 'tipDay' : 'tipNight');
+  labelTip('t-spin', 'tipSpin');
+  labelTip('t-tram', 'tipTram');
+  labelTip('t-metro', 'tipMetro');
   for (const m of MONUMENTS) {
     const name = text(m, lang, 'name');
     const b = labels.get(m.id);
@@ -196,7 +205,7 @@ function setNight(on, instant) {
     ? '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>'
     : '<path d="M20 14.5A8 8 0 0 1 9.5 4 7.5 7.5 0 1 0 20 14.5z"/>';
   if (!instant) renderTexts();
-  else $('t-night').setAttribute('aria-label', night ? t('day') : t('night'));
+  else labelTip('t-night', night ? 'tipDay' : 'tipNight');
 }
 
 function bind() {
