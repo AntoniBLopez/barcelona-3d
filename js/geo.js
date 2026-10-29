@@ -3,15 +3,19 @@ import * as THREE from 'three';
 /** Sphere radius of the maquette, in world units. */
 export const R = 16.5;
 
-/** Geographic origin: roughly the middle of the Eixample. */
-export const OLAT = 41.3905;
-export const OLNG = 2.168;
+/** Geographic origin: the middle of the city, between the sea and Collserola. */
+export const OLAT = 41.401;
+export const OLNG = 2.170;
 
 /**
  * How many degrees of the maquette one metre of Barcelona occupies.
- * Tuned so the city fills the visible face of the planet without wrapping it.
+ * The built city, from the port to Collserola, fills the visible face
+ * and stays short of the pole so the coast does not wrap behind the globe.
  */
-export const DEG_PER_M = 0.0076;
+export const DEG_PER_M = 0.014;
+
+/** Heights authored in world units at the previous map scale (0.0076). */
+export const RELIEF = DEG_PER_M / 0.0076;
 
 const M_LAT = 111320;
 const M_LNG = 111320 * Math.cos((OLAT * Math.PI) / 180);

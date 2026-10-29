@@ -1,7 +1,10 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CITY } from '../data/city.js';
-import { R, project, unprojectDir, dirLL, placeOn, U_PER_M } from './geo.js';
+import { R, unprojectDir, placeOn, RELIEF, OLAT, OLNG, DEG_PER_M } from './geo.js';
 import { mat } from './kit.js';
+import { buildDistricts } from './districts.js';
+import { buildFabric } from './fabric.js';
 
 const M_LAT = 111320;
 const M_LNG = 111320 * Math.cos((41.3905 * Math.PI) / 180);
@@ -94,33 +97,56 @@ export function sampleGround(lat, lng) {
   const fwd = shoreAt(shoreCum[nearI] + 550);
   const anchor = shore[nearI];
   const cross = (fwd[0] - back[0]) * (lat - anchor[1]) - (fwd[1] - back[1]) * (lng - anchor[0]);
-  // OSM coastline keeps land on the left of travel.
-  let sea = cross < 0;
-  if (inRings(lng, lat, CITY.port)) sea = true;
   const coastM = Math.sqrt(best);
+  // Only a strip of water along the coast. The open sea does not fill the globe.
+  let sea = cross < 0 && coastM < 680;
+  if (inRings(lng, lat, CITY.port)) sea = true;
+  // The port polygon folds back over the beach. Keep the landward shore dry.
+  if (sea && cross >= 0 && coastM < 160) sea = false;
   const beach = !sea && coastM < 120 && lng > 2.183 && lat > 41.368 && lat < 41.41;
   const park = !sea && (
     inRings(lng, lat, CITY.parks.ciutadella)
     || inRings(lng, lat, CITY.parks.montjuic)
     || inRings(lng, lat, CITY.parks.guell)
   );
-  const mont = gauss(lat, lng, 41.3636, 2.1585, 780);
-  const tibi = gauss(lat, lng, 41.4221, 2.1188, 1400);
-  const carmel = gauss(lat, lng, 41.4188, 2.157, 620);
-  const collserola = gauss(lat, lng, 41.428, 2.11, 2400);
-  const hill = mont * 0.85 + tibi * 1.35 + carmel * 0.5 + collserola * 0.7;
-  const radius = sea ? R - 0.04 : R + 0.1 + hill + (beach ? -0.04 : 0);
+  const mont = gauss(lat, lng, 41.3636, 2.1585, 900);
+  const tibi = gauss(lat, lng, 41.4221, 2.1188, 1050);
+  const ridgeW = gauss(lat, lng, 41.432, 2.075, 2400);
+  const ridgeE = gauss(lat, lng, 41.416, 2.148, 1700);
+  const carmel = gauss(lat, lng, 41.4188, 2.157, 700);
+  const ridge = Math.max(tibi * 1.18, ridgeW * 0.7, ridgeE * 0.58);
+  const hill = mont * 0.42 + ridge + carmel * 0.26;
+  const farM = Math.hypot((lng - OLNG) * M_LNG, (lat - OLAT) * M_LAT);
+  const rise = 1.4;
+  const radius = sea ? R - 0.045 * rise : R + 0.1 * rise + hill * rise + (beach ? -0.04 * rise : 0);
   let kind = 'city';
   if (sea) kind = 'sea';
   else if (beach) kind = 'beach';
   else if (park || mont > 0.35) kind = 'park';
-  else if (tibi > 0.28 || collserola > 0.42) kind = 'forest';
+  else if (tibi > 0.34 || ridgeW > 0.4 || (ridgeE > 0.48 && lat > 41.416) || (farM > 8000 && lat > 41.43)) kind = 'forest';
   else if (lat > 41.372 && lat < 41.408 && lng > 2.142 && lng < 2.188) kind = 'eixample';
+  else if (lat < 41.342 && lng < 2.15 && lng > 2.05) kind = 'delta';
   return { sea, beach, park, kind, radius, coastM };
 }
 
 export function groundRadius(lat, lng) {
   return sampleGround(lat, lng).radius;
+}
+
+/** True when the point and a small ring around it are out of the sea. */
+export function onLand(lat, lng, margin = 40) {
+  const dLat = margin / M_LAT;
+  const dLng = margin / M_LNG;
+  for (const [la, ln] of [
+    [lat, lng],
+    [lat + dLat, lng],
+    [lat - dLat, lng],
+    [lat, lng + dLng],
+    [lat, lng - dLng],
+  ]) {
+    if (sampleGround(la, ln).sea) return false;
+  }
+  return true;
 }
 
 const PAL = {
@@ -130,6 +156,7 @@ const PAL = {
   eixample: new THREE.Color('#d8c4a2'),
   park: new THREE.Color('#6a9a48'),
   forest: new THREE.Color('#4f7d3e'),
+  delta: new THREE.Color('#c5d392'),
 };
 
 function hash(i) {
@@ -138,27 +165,106 @@ function hash(i) {
   return (h >>> 0) / 4294967296;
 }
 
-/** The planet: sea, beach, Eixample plain, Montjuïc and Collserola. */
+function edgeKey(a, b) {
+  return a < b ? `${a},${b}` : `${b},${a}`;
+}
+
+/** Split a triangle on the edges present in `mark`, keeping the outward winding. */
+function splitTri([a, b, c], mark, mid) {
+  const ab = mark.has(edgeKey(a, b)) ? mid(a, b) : -1;
+  const bc = mark.has(edgeKey(b, c)) ? mid(b, c) : -1;
+  const ca = mark.has(edgeKey(c, a)) ? mid(c, a) : -1;
+  const n = (ab >= 0) + (bc >= 0) + (ca >= 0);
+  if (n === 0) return [[a, b, c]];
+  if (n === 3) return [[a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]];
+  if (n === 1) {
+    if (ab >= 0) return [[a, ab, c], [ab, b, c]];
+    if (bc >= 0) return [[a, b, bc], [a, bc, c]];
+    return [[a, b, ca], [b, c, ca]];
+  }
+  if (ab < 0) return [[c, ca, bc], [ca, a, bc], [a, b, bc]];
+  if (bc < 0) return [[a, ab, ca], [ab, b, ca], [b, c, ca]];
+  return [[b, bc, ab], [bc, c, ab], [c, a, ab]];
+}
+
+/**
+ * The planet, coarse inland and fine along the OSM coast.
+ * A triangle is one colour, so a 700 m face was painting the port over the quays.
+ */
 export function buildPlanet(world) {
-  const src = new THREE.IcosahedronGeometry(1, 5).toNonIndexed();
-  const pos = src.attributes.position;
-  const col = new Float32Array(pos.count * 3);
-  const v = new THREE.Vector3();
+  const base = mergeVertices(new THREE.IcosahedronGeometry(1, 6).toNonIndexed());
+  const basePos = base.attributes.position;
+  const baseIdx = base.index.array;
+  const verts = [];
+  const cache = [];
+  for (let i = 0; i < basePos.count; i++) {
+    verts.push(new THREE.Vector3().fromBufferAttribute(basePos, i).normalize());
+    cache.push(null);
+  }
+  let tris = [];
+  for (let i = 0; i < baseIdx.length; i += 3) tris.push([baseIdx[i], baseIdx[i + 1], baseIdx[i + 2]]);
+  const infoAt = (i) => {
+    if (!cache[i]) {
+      const g = unprojectDir(verts[i]);
+      cache[i] = sampleGround(g.lat, g.lng);
+    }
+    return cache[i];
+  };
+  // About 22 m. Streets and blocks then sit on the same side of the shore as the mesh.
+  const target = 22 * DEG_PER_M * (Math.PI / 180);
+  for (let pass = 0; pass < 6 && tris.length < 140000; pass++) {
+    const mark = new Set();
+    let any = false;
+    for (const [a, b, c] of tris) {
+      const ang = Math.max(verts[a].angleTo(verts[b]), verts[b].angleTo(verts[c]), verts[c].angleTo(verts[a]));
+      if (ang <= target) continue;
+      const ia = infoAt(a);
+      const ib = infoAt(b);
+      const ic = infoAt(c);
+      const mixed = ia.sea !== ib.sea || ib.sea !== ic.sea;
+      const coastal = Math.min(ia.coastM, ib.coastM, ic.coastM) < 260;
+      if (!mixed && !coastal) continue;
+      any = true;
+      mark.add(edgeKey(a, b));
+      mark.add(edgeKey(b, c));
+      mark.add(edgeKey(c, a));
+    }
+    if (!any) break;
+    const mids = new Map();
+    const mid = (a, b) => {
+      const k = edgeKey(a, b);
+      if (mids.has(k)) return mids.get(k);
+      const id = verts.length;
+      verts.push(verts[a].clone().add(verts[b]).normalize());
+      cache.push(null);
+      mids.set(k, id);
+      return id;
+    };
+    const next = [];
+    for (const tri of tris) next.push(...splitTri(tri, mark, mid));
+    tris = next;
+  }
+  base.dispose();
+
+  const positions = new Float32Array(tris.length * 9);
+  const colors = new Float32Array(tris.length * 9);
   const c = new THREE.Color();
-  for (let i = 0; i < pos.count; i += 3) {
-    const acc = new THREE.Vector3();
-    for (let k = 0; k < 3; k++) acc.add(v.fromBufferAttribute(pos, i + k).normalize());
-    acc.normalize();
-    const geo = unprojectDir(acc);
-    const info = sampleGround(geo.lat, geo.lng);
-    c.copy(PAL[info.kind]).offsetHSL(0, 0, (hash(i) - 0.5) * 0.03);
-    for (let k = 0; k < 3; k++) {
-      v.fromBufferAttribute(pos, i + k).normalize().multiplyScalar(info.radius);
-      pos.setXYZ(i + k, v.x, v.y, v.z);
-      c.toArray(col, (i + k) * 3);
+  let o = 0;
+  for (const tri of tris) {
+    for (const id of tri) {
+      const info = infoAt(id);
+      const p = verts[id].clone().multiplyScalar(info.radius);
+      positions[o] = p.x;
+      positions[o + 1] = p.y;
+      positions[o + 2] = p.z;
+      c.copy(PAL[info.kind]).offsetHSL(0, 0, (hash(id) - 0.5) * 0.03);
+      c.toArray(colors, o);
+      o += 3;
     }
   }
-  src.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const src = new THREE.BufferGeometry();
+  src.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  src.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   src.computeVertexNormals();
   const land = new THREE.Mesh(src, new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.96, metalness: 0, flatShading: true,
@@ -176,63 +282,6 @@ export function buildPlanet(world) {
   water.receiveShadow = true;
   world.add(water);
   return { land, water };
-}
-
-/** Chamfered Cerdà blocks, aligned with Gran Via. */
-export function buildEixample(world) {
-  const axis = CITY.axes.granvia;
-  const a = axis[0];
-  const b = axis[axis.length - 1];
-  const ang = Math.atan2((b[0] - a[0]) * M_LNG, (b[1] - a[1]) * M_LAT);
-  const cos = Math.cos(ang);
-  const sin = Math.sin(ang);
-  const shape = new THREE.Shape();
-  const c = 0.14;
-  const pts = [[-0.5 + c, -0.5], [0.5 - c, -0.5], [0.5, -0.5 + c], [0.5, 0.5 - c], [0.5 - c, 0.5], [-0.5 + c, 0.5], [-0.5, 0.5 - c], [-0.5, -0.5 + c]];
-  shape.moveTo(pts[0][0], pts[0][1]);
-  pts.slice(1).forEach(([x, y]) => shape.lineTo(x, y));
-  shape.closePath();
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 1 });
-  geo.rotateX(-Math.PI / 2);
-  geo.translate(0, 0, 0);
-  geo.computeVertexNormals();
-  const colors = ['#e7d7c0', '#d9c3a4', '#f1e6d4', '#c9b294', '#efe4d2'];
-  const meshes = colors.map((color) => {
-    const mesh = new THREE.InstancedMesh(geo, mat(color), 280);
-    mesh.count = 0;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    world.add(mesh);
-    return mesh;
-  });
-  const step = 133;
-  const dummy = new THREE.Object3D();
-  const foot = 113 * U_PER_M * 1.45;
-  let n = 0;
-  for (let ix = -16; ix <= 16; ix++) {
-    for (let iy = -14; iy <= 14; iy++) {
-      const east = ix * step;
-      const north = iy * step;
-      const dx = east * cos + north * sin;
-      const dy = -east * sin + north * cos;
-      const lat = 41.391 + dy / M_LAT;
-      const lng = 2.165 + dx / M_LNG;
-      if (lat < 41.374 || lat > 41.406 || lng < 2.144 || lng > 2.186) continue;
-      if (lat < 41.383 && lng > 2.16 && lng < 2.182) continue;
-      const gnd = sampleGround(lat, lng);
-      if (gnd.sea || gnd.park || gnd.beach) continue;
-      const h = (0.16 + ((Math.abs(ix * 7 + iy * 3) % 5) / 5) * 0.34);
-      placeOn(dummy, lat, lng, gnd.radius, ang);
-      dummy.scale.set(foot, h, foot);
-      dummy.updateMatrix();
-      const bucket = Math.abs(ix + iy * 3) % meshes.length;
-      const mesh = meshes[bucket];
-      mesh.setMatrixAt(mesh.count++, dummy.matrix);
-      n++;
-    }
-  }
-  meshes.forEach((m) => { m.instanceMatrix.needsUpdate = true; });
-  return n;
 }
 
 const _treeDummy = new THREE.Object3D();
@@ -254,8 +303,8 @@ function scatter(world, rings, count, tint) {
     if (!inside(lng, lat, ring)) continue;
     const gnd = sampleGround(lat, lng);
     if (gnd.sea) continue;
-    placeOn(_treeDummy, lat, lng, gnd.radius + 0.08, 0);
-    _treeDummy.scale.setScalar(0.7 + Math.random() * 0.8);
+    placeOn(_treeDummy, lat, lng, gnd.radius + 0.08 * RELIEF, 0);
+    _treeDummy.scale.setScalar((0.28 + Math.random() * 0.2) * RELIEF);
     _treeDummy.updateMatrix();
     trunk.setMatrixAt(trunk.count, _treeDummy.matrix);
     _treeDummy.position.addScaledVector(_treeDummy.userData.normal, 0.12 * _treeDummy.scale.x);
@@ -273,4 +322,8 @@ export function buildTrees(world) {
   scatter(world, CITY.parks.ciutadella, 40, '#3f7a35');
   scatter(world, CITY.parks.montjuic, 70, '#5d8a40');
   scatter(world, CITY.parks.guell, 36, '#6a9a48');
+  buildDistricts(world);
+  buildFabric(world);
 }
+
+export { buildEixample } from './eixample.js';

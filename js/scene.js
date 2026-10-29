@@ -6,11 +6,14 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CITY } from '../data/city.js';
 import { MONUMENTS } from './monuments.js';
 import { GAUDI_BUILDERS } from './models-gaudi.js';
-import { CITY_BUILDERS } from './models-city.js';
+import { CITY_BUILDERS, mapfreArts } from './models-city.js';
+import { glories } from './models-glories.js';
+import { tibidabo, collserolaTower } from './models-tibidabo.js';
+import { fitModel, YAW } from './fit.js';
 import { buildPlanet, buildEixample, buildTrees, groundRadius } from './terrain.js';
 import { buildStreets, buildTramTracks, buildTrams, stepTrams, buildMetro, buildShip, stepShip } from './transit.js';
 import { createCamera } from './camera.js';
-import { placeOn, project, dirLL, R } from './geo.js';
+import { placeOn, project, dirLL, R, U_PER_M } from './geo.js';
 import { setGlow } from './kit.js';
 
 const coarse = matchMedia('(pointer:coarse)').matches;
@@ -36,7 +39,7 @@ export async function createScene(canvas, hooks) {
   const sun = new THREE.DirectionalLight('#ffe6c4', 2.05);
   sun.castShadow = !coarse;
   sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 2, far: 80 });
+  Object.assign(sun.shadow.camera, { left: -36, right: 36, top: 36, bottom: -36, near: 2, far: 90 });
   sun.shadow.bias = -0.0004;
   const rim = new THREE.DirectionalLight('#d5e7ff', 0.7);
   scene.add(hemi, sun, sun.target, rim);
@@ -71,13 +74,18 @@ export async function createScene(canvas, hooks) {
   );
   ring.visible = false;
 
+  const builders = { ...GAUDI_BUILDERS, ...CITY_BUILDERS, glories, tibidabo };
   for (const m of MONUMENTS) {
-    const builder = GAUDI_BUILDERS[m.id] || CITY_BUILDERS[m.id];
+    const builder = builders[m.id];
     const model = builder ? builder() : new THREE.Group();
+    const metrics = builder ? fitModel(model, m.id) : { span: 0.2, height: 0.2 };
     const wrap = new THREE.Group();
     const base = groundRadius(m.lat, m.lng);
-    placeOn(wrap, m.lat, m.lng, base, (m.yaw || 0) * Math.PI / 180);
+    placeOn(wrap, m.lat, m.lng, base, YAW[m.id] || 0);
     wrap.add(model);
+    if (model.userData.animate) wrap.userData.animate = model.userData.animate;
+    m.worldH = metrics.height;
+    m.worldSpan = metrics.span;
     wrap.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = !coarse;
@@ -90,6 +98,14 @@ export async function createScene(canvas, hooks) {
     m.obj = wrap;
     m.base = base;
   }
+  const tower = collserolaTower();
+  tower.scale.setScalar(U_PER_M);
+  placeOn(tower, 41.4173, 2.1141, groundRadius(41.4173, 2.1141), 0);
+  world.add(tower);
+  const twins = mapfreArts();
+  twins.scale.setScalar(U_PER_M);
+  placeOn(twins, 41.3874, 2.1968, groundRadius(41.3874, 2.1968), 0.55);
+  world.add(twins);
   trams.forEach((tram) => tram.rig.traverse((o) => { if (o.isMesh) pickables.push(o); }));
   hooks.progress(88);
   await tick();
@@ -177,16 +193,16 @@ export async function createScene(canvas, hooks) {
   function focusMonument(m) {
     followIdx = -1;
     const n = m.obj.userData.normal;
-    const south = m.obj.userData.south;
     const east = m.obj.userData.east;
-    const view = n.clone().multiplyScalar(0.72).add(south.clone().multiplyScalar(0.62)).add(east.clone().multiplyScalar(0.28)).normalize();
-    const focus = n.clone().multiplyScalar(m.base + (m.top || 1) * 0.35);
-    const dist = (6.5 + (m.foot || 1) * 1.3 + (m.top || 1) * 0.35) * (innerWidth > 860 ? 1 : 1.35);
-    rig.flyTo(view, dist, focus, 1700);
-    ring.position.set(0, 0.05, 0);
-    ring.scale.setScalar((m.foot || 1) * 0.85);
-    m.obj.add(ring);
-    ring.visible = true;
+    const front = new THREE.Vector3(0, 0, 1).applyQuaternion(m.obj.quaternion);
+    const h = m.worldH || 0.08;
+    const span = m.worldSpan || h;
+    const view = n.clone().multiplyScalar(0.46).add(front.multiplyScalar(0.84)).add(east.multiplyScalar(0.2)).normalize();
+    const focus = n.clone().multiplyScalar(m.base + h * 0.42);
+    const tan = Math.tan((camera.fov * Math.PI) / 360);
+    const dist = Math.max(span * 0.62, Math.max(h, span / camera.aspect) / tan * 0.64);
+    rig.flyTo(view, dist * (innerWidth > 860 ? 1 : 1.3), focus, 1700);
+    ring.visible = false;
   }
 
   function followTram(index) {
@@ -196,8 +212,8 @@ export async function createScene(canvas, hooks) {
     ring.visible = false;
     const n = tram.rig.position.clone().normalize();
     const side = tram.rig.userData.east || new THREE.Vector3(1, 0, 0);
-    const view = n.clone().multiplyScalar(0.75).add(side.clone().multiplyScalar(0.45)).normalize();
-    rig.flyTo(view, innerWidth > 860 ? 4.2 : 6, tram.rig.position.clone(), 1400);
+    const view = n.clone().multiplyScalar(0.7).add(side.clone().multiplyScalar(0.62)).normalize();
+    rig.flyTo(view, innerWidth > 860 ? 0.95 : 1.4, tram.rig.position.clone(), 1400);
     return tram.ref;
   }
 
@@ -213,6 +229,8 @@ export async function createScene(canvas, hooks) {
     applyLook(nightK);
     stepTrams(trams, dt);
     stepShip(ship, clock);
+    for (const m of MONUMENTS) m.obj.userData.animate?.(clock, nightK);
+    tower.userData.animate?.(clock, nightK);
     if (followIdx >= 0 && rig.state.focus && trams[followIdx]) {
       const f = rig.state.focus;
       const p = trams[followIdx].rig.position.clone();
@@ -228,7 +246,7 @@ export async function createScene(canvas, hooks) {
     sun.target.position.set(0, 0, 0);
     rim.position.copy(sun.position).multiplyScalar(-0.4).add(new THREE.Vector3(0, 20, 0));
     rig.step(dt || 0.016);
-      if (composer) {
+    if (composer) {
       const focus = bokeh && (bokeh.uniforms || bokeh.materialBokeh?.uniforms);
       if (focus && focus.focus) focus.focus.value = camera.position.distanceTo(rig.state.target);
       composer.render();
@@ -244,12 +262,13 @@ export async function createScene(canvas, hooks) {
       const p = m.obj.position;
       proj.copy(p).project(camera);
       const facing = p.clone().normalize().dot(camera.position.clone().normalize());
-      const visible = facing > (zoomedOut ? 0.86 : 0.42) && proj.z < 1 && (!zoomedOut || m.major);
+      const visible = facing > (zoomedOut ? 0.72 : 0.4) && proj.z < 1;
       out.push({
         id: m.id,
         x: (proj.x * 0.5 + 0.5) * innerWidth,
         y: (-proj.y * 0.5 + 0.5) * innerHeight,
         visible,
+        major: m.major,
       });
     }
     const stations = CITY.metro.stations.map((s, i) => {
@@ -287,6 +306,8 @@ export async function createScene(canvas, hooks) {
       if (!on) followIdx = -1;
     },
     setMetro(on) { showMetro = on; metro.entrances.visible = on; metro.stations.visible = on; },
+    zoomBy: (dy) => rig.zoomBy(dy),
+    pinchBy: (f) => rig.pinchBy(f),
     tramVisible: () => showTram,
     nudge: () => rig.nudge(),
   };

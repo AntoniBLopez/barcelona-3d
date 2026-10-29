@@ -40,10 +40,24 @@ export const MOSAIC = new THREE.MeshStandardMaterial({
   flatShading: true,
 });
 
+/** A material whose opacity (LEDs) or emissive tracks the night amount. */
+export function watchGlow(material, amount, asOpacity = false) {
+  material.userData.glow = amount;
+  material.userData.asOpacity = asOpacity;
+  if (asOpacity) material.opacity = 0;
+  else material.emissiveIntensity = 0;
+  glow.push(material);
+  return material;
+}
+
 /** Night amount from 0 (day) to 1. Window lights fade in with it. */
 export function setGlow(k) {
   WIN.emissiveIntensity = 2.3 * k;
-  for (const m of glow) m.emissiveIntensity = m.userData.glow * k;
+  for (const m of glow) {
+    const v = m.userData.glow * k;
+    if (m.userData.asOpacity) m.opacity = v;
+    else m.emissiveIntensity = v;
+  }
 }
 
 export function add(parent, geo, material, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {

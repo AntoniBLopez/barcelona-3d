@@ -255,7 +255,7 @@ export const MONUMENTS = [
       'Ricardo Bofill’s sail-shaped tower, opened in 2009 at the end of Barceloneta, where the seafront meets the port. From a distance it looks like a ship about to leave.',
       'The silhouette makes more sense from the beach, a few hundred metres north.',
       [['2009', 'opened'], ['Bofill', 'architect'], ['Sail', 'the shape']])),
-  m('colon', 'city', 41.37580, 2.17777, '1888', true, 0.45, 1.75, '',
+  m('colon', 'city', 41.37902, 2.17506, '1888', true, 0.45, 1.75, '',
     es('Mirador de Colom', 'Monumento', 'Exposición de 1888 · Gaietà Buïgas', 'se levanta la columna',
       'La columna de Colón que cierra la Rambla frente al puerto, obra de Gaietà Buïgas para la Exposición de 1888. El conjunto mide unos 60 m. El dedo del almirante señala al mar, no a América.',
       'Se puede subir al mirador: la Rambla queda como una recta hasta Catalunya.',
