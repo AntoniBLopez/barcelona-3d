@@ -3,6 +3,7 @@ import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA } from './kit.js'
 import { campnou } from './models-campnou.js';
 import { arc } from './models-arc.js';
 import { santpau } from './models-santpau.js';
+import { colon } from './models-colon.js';
 
 const stone = () => mat('#e4d5bc');
 const brick = () => mat('#b5644a');
@@ -182,21 +183,6 @@ export function hotelw() {
   add(g, geo, glass);
   add(g, box(34, 8, 20), mat('#d5d0c8'), 4, 4, 2);
   for (let i = 0; i < 8; i++) add(g, box(10, 0.6, 0.4), WIN, 6, 18 + i * 9, 6);
-  return g;
-}
-
-export function colon() {
-  const g = new THREE.Group();
-  const st = stone();
-  add(g, cyl(7, 8, 4, 8), st, 0, 2, 0);
-  add(g, cyl(2.1, 2.8, 40, 10), st, 0, 24, 0);
-  add(g, cyl(3.4, 3.4, 2, 8), st, 0, 45, 0);
-  const bronze = mat('#6a542c');
-  add(g, box(1.4, 5, 1.1), bronze, 0, 48, 0);
-  add(g, box(1.1, 0.5, 2.4), bronze, 0, 50, 1.2);
-  for (const [x, z] of [[5.2, 0], [-5.2, 0], [0, 5.2], [0, -5.2]]) {
-    add(g, box(1.6, 1.2, 2.4), mat('#8a7048'), x, 1.2, z);
-  }
   return g;
 }
 

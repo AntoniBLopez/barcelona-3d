@@ -56,7 +56,9 @@ export function buildStreets(world) {
     [CITY.axes.poblenou, 24, '#c4b08a'],
   ];
   for (const [line, width, color] of specs) {
-    const mesh = ribbon(line, width, 0.035, color);
+    // Stop La Rambla short of the Columbus column so the promenade doesn't cut the base.
+    const pts = line === CITY.axes.rambla ? [line[0], [2.17481, 41.37933]] : line;
+    const mesh = ribbon(pts, width, 0.035, color);
     if (mesh) group.add(mesh);
   }
   const avenue = ribbon(GAUDI_AVE, 34, 0.05, '#e6dcc8');

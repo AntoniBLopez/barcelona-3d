@@ -198,17 +198,17 @@ export async function createScene(canvas, hooks) {
     const overhead = m.id === 'guell';
     const basilica = m.id === 'sagrada';
     const bowl = m.id === 'campnou';
-    const street = m.id === 'batllo' || m.id === 'arc' || m.id === 'santpau';
+    const street = m.id === 'batllo' || m.id === 'arc' || m.id === 'santpau' || m.id === 'colon';
     const front = new THREE.Vector3(0, 0, 1).applyQuaternion(m.obj.quaternion);
     const view = street
-      ? n.clone().multiplyScalar(m.id === 'arc' ? 0.18 : m.id === 'santpau' ? 0.28 : 0.42).add(front.multiplyScalar(m.id === 'arc' ? 1 : m.id === 'santpau' ? 1 : 0.9))
-        .add(east.clone().multiplyScalar(m.id === 'arc' ? 0.72 : m.id === 'santpau' ? 0.34 : 0)).normalize()
+      ? n.clone().multiplyScalar(m.id === 'arc' ? 0.18 : m.id === 'santpau' ? 0.28 : m.id === 'colon' ? 0.34 : 0.42).add(front.multiplyScalar(m.id === 'arc' ? 1 : m.id === 'santpau' ? 1 : m.id === 'colon' ? 0.45 : 0.9))
+        .add(east.clone().multiplyScalar(m.id === 'arc' ? 0.72 : m.id === 'santpau' ? 0.34 : m.id === 'colon' ? 0.9 : 0)).normalize()
       : n.clone().multiplyScalar(basilica ? 0.36 : bowl ? 0.8 : overhead ? 0.92 : 0.55)
         .add(south.clone().multiplyScalar(basilica ? 0.84 : bowl ? 0.5 : overhead ? 0.4 : 0.78))
         .add(east.clone().multiplyScalar(basilica ? 0.42 : bowl ? 0.28 : 0.2))
         .normalize();
     const h = m.worldH || 0.08;
-    const lift = basilica ? 0.52 : bowl ? 0.25 : m.id === 'arc' ? 0.34 : m.id === 'santpau' ? 0.36 : street ? 0.55 : 0.45;
+    const lift = basilica ? 0.52 : bowl ? 0.25 : m.id === 'arc' ? 0.34 : m.id === 'santpau' ? 0.36 : m.id === 'colon' ? 0.48 : street ? 0.55 : 0.45;
     const shift = street ? 0.08 : Math.min(0.55, h * 1.2);
     const focus = n.clone().multiplyScalar(m.base + h * lift).add(east.clone().multiplyScalar(shift));
     const dist = m.id === 'sagrada'
@@ -219,7 +219,7 @@ export async function createScene(canvas, hooks) {
           ? 2.5
           : Math.min(9, Math.max(2.5, h * 7 + (m.worldSpan || h) * 3.2));
     rig.flyTo(view, dist * (innerWidth > 860 ? 1 : 1.25), focus, 1700);
-    ring.position.set(m.id === 'santpau' ? 0.02 : 0, m.id === 'arc' || m.id === 'santpau' ? 0.003 : 0.02, m.id === 'santpau' ? 0.2 : 0);
+    ring.position.set(m.id === 'santpau' ? 0.02 : 0, m.id === 'arc' || m.id === 'santpau' || m.id === 'colon' ? 0.003 : 0.02, m.id === 'santpau' ? 0.2 : 0);
     const halo = m.id === 'arc' ? m.worldH * 0.5 : m.id === 'santpau' ? m.worldH * 0.28 : (m.worldSpan || 0.2);
     ring.scale.setScalar(Math.max(0.05, halo * 0.62));
     m.obj.add(ring);
