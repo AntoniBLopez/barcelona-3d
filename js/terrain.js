@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { CITY } from '../data/city.js';
-import { R, unprojectDir, placeOn, RELIEF } from './geo.js';
+import { R, unprojectDir, placeOn, RELIEF, OLAT, OLNG } from './geo.js';
 import { mat } from './kit.js';
 import { buildDistricts } from './districts.js';
+import { buildQuarters } from './quarters.js';
 
 const M_LAT = 111320;
 const M_LNG = 111320 * Math.cos((41.3905 * Math.PI) / 180);
@@ -95,10 +96,10 @@ export function sampleGround(lat, lng) {
   const fwd = shoreAt(shoreCum[nearI] + 550);
   const anchor = shore[nearI];
   const cross = (fwd[0] - back[0]) * (lat - anchor[1]) - (fwd[1] - back[1]) * (lng - anchor[0]);
-  // OSM coastline keeps land on the left of travel.
-  let sea = cross < 0;
-  if (inRings(lng, lat, CITY.port)) sea = true;
   const coastM = Math.sqrt(best);
+  // Only a strip of water along the coast. The open sea does not fill the globe.
+  let sea = cross < 0 && coastM < 680;
+  if (inRings(lng, lat, CITY.port)) sea = true;
   const beach = !sea && coastM < 120 && lng > 2.183 && lat > 41.368 && lat < 41.41;
   const park = !sea && (
     inRings(lng, lat, CITY.parks.ciutadella)
@@ -112,17 +113,16 @@ export function sampleGround(lat, lng) {
   const carmel = gauss(lat, lng, 41.4188, 2.157, 700);
   const ridge = Math.max(tibi * 1.18, ridgeW * 0.7, ridgeE * 0.58);
   const hill = mont * 0.42 + ridge + carmel * 0.26;
-  const farM = Math.hypot((lng - 2.168) * M_LNG, (lat - 41.3905) * M_LAT);
-  if (farM > 15000 && lat < 41.4) sea = true;
+  const farM = Math.hypot((lng - OLNG) * M_LNG, (lat - OLAT) * M_LAT);
   const rise = 1.4;
   const radius = sea ? R - 0.045 * rise : R + 0.1 * rise + hill * rise + (beach ? -0.04 * rise : 0);
   let kind = 'city';
   if (sea) kind = 'sea';
   else if (beach) kind = 'beach';
   else if (park || mont > 0.35) kind = 'park';
-  else if (tibi > 0.2 || ridgeW > 0.32 || ridgeE > 0.28 || (farM > 11000 && lat > 41.4)) kind = 'forest';
+  else if (tibi > 0.34 || ridgeW > 0.4 || (ridgeE > 0.48 && lat > 41.416) || (farM > 8000 && lat > 41.43)) kind = 'forest';
   else if (lat > 41.372 && lat < 41.408 && lng > 2.142 && lng < 2.188) kind = 'eixample';
-  else if (lat < 41.368 && lng < 2.19 && lng > 2.05) kind = 'delta';
+  else if (lat < 41.342 && lng < 2.15 && lng > 2.05) kind = 'delta';
   return { sea, beach, park, kind, radius, coastM };
 }
 
@@ -225,6 +225,7 @@ export function buildTrees(world) {
   scatter(world, CITY.parks.montjuic, 70, '#5d8a40');
   scatter(world, CITY.parks.guell, 36, '#6a9a48');
   buildDistricts(world);
+  buildQuarters(world);
 }
 
 export { buildEixample } from './eixample.js';

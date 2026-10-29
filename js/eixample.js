@@ -226,7 +226,8 @@ export function buildEixample(world) {
   const arc = MONUMENTS.find((m) => m.id === 'arc');
   const arcKeep = (SIZE.arc?.[0] || 200) / 2 + 70;
   const inside = (lat, lng) => lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186
-    && !(lat < 41.383 && lng > 2.16 && lng < 2.182);
+    && !(lat < 41.383 && lng > 2.16 && lng < 2.182)
+    && !(lat > 41.4002 && lng > 2.146 && lng < 2.166);
   for (let ix = -16; ix <= 16; ix++) {
     for (let iy = -14; iy <= 14; iy++) {
       const east = ix * STEP;

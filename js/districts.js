@@ -17,7 +17,13 @@ function hash(i) {
 
 function eixample(lat, lng) {
   return lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186
-    && !(lat < 41.383 && lng > 2.16 && lng < 2.182);
+    && !(lat < 41.383 && lng > 2.16 && lng < 2.182)
+    && !(lat > 41.4002 && lng > 2.146 && lng < 2.166);
+}
+function quarter(lat, lng) {
+  return (lat > 41.371 && lat < 41.388 && lng > 2.162 && lng < 2.185)
+    || (lat > 41.372 && lat < 41.386 && lng >= 2.183 && lng < 2.199)
+    || (lat > 41.399 && lat < 41.413 && lng > 2.145 && lng < 2.167);
 }
 
 function blocked(lat, lng) {
@@ -63,7 +69,7 @@ export function buildDistricts(world) {
       if (h > 0.84) continue;
       const gnd = sampleGround(lat, lng);
       if (gnd.sea || gnd.beach || gnd.park || gnd.kind === 'forest' || gnd.kind === 'delta') continue;
-      if (gnd.coastM < 45 || eixample(lat, lng) || blocked(lat, lng)) continue;
+      if (gnd.coastM < 45 || eixample(lat, lng) || quarter(lat, lng) || blocked(lat, lng)) continue;
       const span = 92 + h * 22;
       const depth = span * (0.72 + hash(i + 17) * 0.24);
       const height = 12 + hash(i + 3) * 14;

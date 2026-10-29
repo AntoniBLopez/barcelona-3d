@@ -34,8 +34,8 @@ export function createCamera(camera, canvas) {
     if (!state.dist) {
       state.dist = homeDist();
       state.distTo = state.dist;
-      // Over Collserola, looking down across the city toward the sea.
-      const home = dirLL(18, -16);
+      // Above the middle of the city, with Collserola behind and the sea at the edge.
+      const home = dirLL(9, -7);
       camera.position.copy(home).setLength(state.dist);
       camera.up.set(0, 1, 0);
       camera.lookAt(0, 0, 0);
