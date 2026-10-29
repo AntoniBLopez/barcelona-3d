@@ -25,7 +25,7 @@ export function createCamera(camera, canvas) {
 
   function homeDist() {
     const fov = (camera.fov * D2R) / 2;
-    const fit = (R * 2.55) / (2 * Math.tan(fov) * Math.min(1, camera.aspect));
+    const fit = (R * 1.52) / (2 * Math.tan(fov) * Math.min(1, camera.aspect));
     return fit;
   }
 
@@ -58,8 +58,8 @@ export function createCamera(camera, canvas) {
     const fromUp = camera.up.clone();
     const toUp = target.lengthSq() > 1 ? target.clone().normalize() : new THREE.Vector3(0, 1, 0);
     state.flight = {
-      t: 0,
-      dur: reduced ? 0.01 : ms / 1000,
+      t0: performance.now(),
+      dur: reduced ? 10 : ms,
       fromPos: camera.position.clone(),
       toPos: target.clone().add(dir.clone().normalize().multiplyScalar(dist)),
       fromTarget: state.target.clone(),
@@ -114,8 +114,7 @@ export function createCamera(camera, canvas) {
   function step(dt) {
     if (state.flight) {
       const f = state.flight;
-      f.t += dt / f.dur;
-      const t = Math.min(1, f.t);
+      const t = Math.min(1, (performance.now() - f.t0) / f.dur);
       const e = t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
       camera.position.lerpVectors(f.fromPos, f.toPos, e);
       const lift = Math.sin(Math.PI * e) * 1.6;

@@ -13,7 +13,7 @@ import { fitModel, YAW } from './fit.js';
 import { buildPlanet, buildEixample, buildTrees, groundRadius } from './terrain.js';
 import { buildStreets, buildTramTracks, buildTrams, stepTrams, buildMetro, buildShip, stepShip } from './transit.js';
 import { createCamera } from './camera.js';
-import { placeOn, project, dirLL, R, U_PER_M } from './geo.js';
+import { placeOn, project, dirLL, U_PER_M } from './geo.js';
 import { setGlow } from './kit.js';
 
 const coarse = matchMedia('(pointer:coarse)').matches;
@@ -135,12 +135,19 @@ export async function createScene(canvas, hooks) {
 
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
+  const aim = new THREE.Vector3();
+  const dir = new THREE.Vector3();
+  const occlude = [planet.land];
+  world.traverse((o) => {
+    if (o.isMesh && !o.isInstancedMesh && o !== planet.water && o !== planet.land && o !== ring) occlude.push(o);
+  });
   let down = null;
   let nightK = 0;
   let nightTo = 0;
   let showTram = true;
   let showMetro = false;
   let followIdx = -1;
+  let focusedId = null;
   let clock = 0;
   const proj = new THREE.Vector3();
   const tmp = new THREE.Color();
@@ -192,6 +199,7 @@ export async function createScene(canvas, hooks) {
 
   function focusMonument(m) {
     followIdx = -1;
+    focusedId = m.id;
     const n = m.obj.userData.normal;
     const east = m.obj.userData.east;
     const front = new THREE.Vector3(0, 0, 1).applyQuaternion(m.obj.quaternion);
@@ -254,21 +262,37 @@ export async function createScene(canvas, hooks) {
     hooks.frame(projectLabels());
   }
 
+  function labelAnchor(m) {
+    const n = m.obj.userData.normal;
+    const lift = Math.max((m.worldH || 0.05) * 0.62, 0.16);
+    return aim.copy(n).multiplyScalar(m.base + lift);
+  }
+
+  function labelOpen(m) {
+    const n = m.obj.userData.normal;
+    const anchor = labelAnchor(m);
+    if (n.dot(camera.position) - m.base < 0.45) return false;
+    dir.copy(anchor).sub(camera.position);
+    const reach = dir.length() || 1;
+    ray.set(camera.position, dir.multiplyScalar(1 / reach));
+    ray.far = reach;
+    const blocked = ray.intersectObjects(occlude, false).some((h) => h.distance < reach - 0.18 && h.object.userData.id !== m.id);
+    ray.far = Infinity;
+    return !blocked;
+  }
+
   function projectLabels() {
     const out = [];
-    const dist = camera.position.length();
-    const zoomedOut = dist > R + 28;
     for (const m of MONUMENTS) {
-      const p = m.obj.position;
-      proj.copy(p).project(camera);
-      const facing = p.clone().normalize().dot(camera.position.clone().normalize());
-      const visible = facing > (zoomedOut ? 0.72 : 0.4) && proj.z < 1;
+      proj.copy(labelAnchor(m)).project(camera);
+      const visible = (m.id === focusedId || labelOpen(m)) && proj.z < 1;
       out.push({
         id: m.id,
         x: (proj.x * 0.5 + 0.5) * innerWidth,
         y: (-proj.y * 0.5 + 0.5) * innerHeight,
         visible,
         major: m.major,
+        depth: camera.position.distanceTo(m.obj.position),
       });
     }
     const stations = CITY.metro.stations.map((s, i) => {
@@ -279,7 +303,7 @@ export async function createScene(canvas, hooks) {
         id: s.id,
         x: (proj.x * 0.5 + 0.5) * innerWidth,
         y: (-proj.y * 0.5 + 0.5) * innerHeight,
-        visible: showMetro && facing > 0.45 && proj.z < 1,
+        visible: showMetro && facing > 0.5 && proj.z < 1,
       };
     });
     return { monuments: out, stations };
@@ -292,8 +316,8 @@ export async function createScene(canvas, hooks) {
   return {
     resize,
     focusMonument,
-    clearFocus() { ring.visible = false; },
-    goHome() { followIdx = -1; ring.visible = false; rig.goHome(); },
+    clearFocus() { focusedId = null; ring.visible = false; },
+    goHome() { followIdx = -1; focusedId = null; ring.visible = false; rig.goHome(); },
     followTram,
     stopFollow() { followIdx = -1; rig.goHome(); },
     setNight(on) { nightTo = on ? 1 : 0; },
@@ -316,10 +340,8 @@ export async function createScene(canvas, hooks) {
 function starPositions(n) {
   const arr = [];
   for (let i = 0; i < n; i++) {
-    const u = Math.random() * 2 - 1;
-    const t = Math.random() * Math.PI * 2;
-    const s = Math.sqrt(1 - u * u);
-    const r = 80 + Math.random() * 30;
+    const u = Math.random() * 2 - 1, t = Math.random() * Math.PI * 2;
+    const s = Math.sqrt(1 - u * u), r = 80 + Math.random() * 30;
     arr.push(s * Math.cos(t) * r, u * r, s * Math.sin(t) * r);
   }
   return arr;

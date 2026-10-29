@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { QUARTERS } from '../data/quarters.js';
 import { MONUMENTS } from './monuments.js';
-import { SIZE } from './fit.js';
+import { SIZE, BOOST } from './fit.js';
 import { placeOn, U_PER_M } from './geo.js';
 import { CITY } from '../data/city.js';
 import { groundRadius, sampleGround, onLand } from './terrain.js';
@@ -48,10 +48,19 @@ function wetFoot(flat) {
 
 function reserved(lat, lng) {
   for (const m of MONUMENTS) {
-    const span = (SIZE[m.id]?.[0] || 30) / 2 + 16;
+    const span = ((SIZE[m.id]?.[0] || 30) * (BOOST[m.id] || 1.5)) / 2 + 20;
     if (Math.hypot((lat - m.lat) * M_LAT, (lng - m.lng) * M_LNG) < span) return true;
   }
   return false;
+}
+
+function footprint(flat) {
+  let a = 0;
+  for (let i = 0; i < flat.length; i += 2) {
+    const j = (i + 2) % flat.length;
+    a += flat[i] * flat[j + 1] - flat[j] * flat[i + 1];
+  }
+  return Math.abs(a) * 0.5 * M_LNG * M_LAT;
 }
 
 function centroid(flat) {
@@ -157,7 +166,7 @@ function addRibbon(pos, idx, line, widthM, lift) {
 }
 
 const TINT = {
-  ciutat: ['#e7d4ba', '#dcc7a8'],
+  ciutat: ['#f4eee4', '#efe6d8'],
   barceloneta: ['#f4e7d0', '#ead9b8'],
   gracia: ['#efe0c8', '#e4d2b6'],
 };
@@ -168,25 +177,38 @@ export function buildQuarters(world) {
   const roadIdx = [];
   for (const [name, data] of Object.entries(QUARTERS)) {
     const buckets = [[], []];
+    const pale = [];
     for (const [h, flat] of data.buildings) {
+      if (footprint(flat) < 700) continue;
       const [lng, lat] = centroid(flat);
       const gnd = sampleGround(lat, lng);
       if (gnd.sea || gnd.park || gnd.beach || wetFoot(flat) || inEixample(lat, lng) || reserved(lat, lng)) continue;
-      const geo = prism(flat, h);
-      if (geo) buckets[h % 2].push(geo);
+      const flank = name === 'ciutat' && nearLine(lat, lng, CITY.axes.rambla, 180);
+      const height = name === 'ciutat' ? Math.min(h, flank ? 6 : 11) : h;
+      const geo = prism(flat, height);
+      if (!geo) continue;
+      if (flank) pale.push(geo);
+      else buckets[Math.round(height) % 2].push(geo);
+    }
+    if (pale.length) {
+      const mesh = new THREE.Mesh(merge(pale), mat('#f6efe4'));
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      world.add(mesh);
     }
     TINT[name].forEach((color, i) => {
       if (!buckets[i].length) return;
       const mesh = new THREE.Mesh(merge(buckets[i]), mat(color));
-      mesh.castShadow = true;
+      mesh.castShadow = false;
       mesh.receiveShadow = true;
       world.add(mesh);
     });
     for (const [width, lines] of Object.entries(data.streets)) {
       for (const line of lines) {
         const mid = line[line.length >> 1];
-        if (inEixample(mid[1], mid[0])) continue;
-        addRibbon(roads, roadIdx, line, Number(width) * 0.72, 0.028);
+        const metres = Number(width);
+        if (metres < 11 || inEixample(mid[1], mid[0])) continue;
+        addRibbon(roads, roadIdx, line, Math.max(metres * 1.6, 18), 0.03);
       }
     }
   }
@@ -195,7 +217,7 @@ export function buildQuarters(world) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(roads, 3));
   geo.setIndex(roadIdx);
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, mat('#3e4450'));
+  const mesh = new THREE.Mesh(geo, mat('#f0e4cc'));
   mesh.receiveShadow = true;
   world.add(mesh);
 }

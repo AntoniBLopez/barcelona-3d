@@ -4,7 +4,7 @@ import { add, box, cyl, mat, watchGlow, checkerTexture } from './kit.js';
 const cream = () => mat('#e7dcc8', { emissive: '#ffd2a4', emissiveIntensity: 0.4, roughness: 0.86 });
 const creamD = () => mat('#d4c6ae', { emissive: '#e8c090', emissiveIntensity: 0.3, roughness: 0.9 });
 const creamW = () => mat('#f3ead8', { emissive: '#ffe0b8', emissiveIntensity: 0.42, roughness: 0.82 });
-const iron = () => mat('#2a2e34', { roughness: 0.48, metalness: 0.5, emissive: '#3a342e', emissiveIntensity: 0.2 });
+const iron = () => mat('#6e655c', { roughness: 0.48, metalness: 0.35, emissive: '#a08060', emissiveIntensity: 0.25 });
 const glass = () => mat('#243044', { emissive: '#ffb15a', emissiveIntensity: 2.2, roughness: 0.32 });
 const court = () => mat('#1a222c', { emissive: '#ffb15a', emissiveIntensity: 0.25, roughness: 0.8 });
 const crossM = () => mat('#f4efe4', { emissive: '#fff0d0', emissiveIntensity: 0.7, roughness: 0.4 });

@@ -37,6 +37,20 @@ export const SIZE = {
   poblenou: [22, 10],
 };
 
+/**
+ * Extra scale on top of the real-metre fit. Thin towers and houses need a
+ * strong factor before they read bigger than an Eixample block (~108 × 22 m).
+ */
+export const BOOST = {
+  sagrada: 3.3, campnou: 1.45, tibidabo: 2.35, glories: 3.3, hotelw: 2.7,
+  colon: 3.5, batllo: 7.2, pedrera: 6.8, vicens: 5.4, catedral: 3.1,
+  arc: 2.7, guell: 2.05, mnac: 2.35, santpau: 1.8, musica: 3.7,
+  santamaria: 3.6, castell: 2.4, estadi: 2.0, palauguell: 3.4, bellesguard: 4.2,
+  pavellons: 3.6, gotic: 2.6, catalunya: 1.8, portvell: 2.1, boqueria: 2.3,
+  ciutadella: 2.0, espanya: 2.2, poblenou: 2.8, bunkers: 4.0, fontmagica: 3.0,
+  rambla: 1.35, barceloneta: 1.6,
+};
+
 /** Local +Z is south, so the sail's face looks out over the port. */
 /** Casa Batlló's facade looks northeast, onto Passeig de Gràcia. */
 export const YAW = { batllo: 2.32, arc: 0.82, santpau: -0.08, colon: 0.54, pedrera: 3.01 };
@@ -54,7 +68,7 @@ export function fitModel(model, id) {
   box.getSize(size);
   const sH = (heightM * U_PER_M) / (size.y || 1);
   const sW = (spanM * U_PER_M) / (Math.max(size.x, size.z) || 1);
-  const s = Math.min(sH, sW);
+  const s = Math.min(sH, sW) * (BOOST[id] || 1.5);
   model.scale.setScalar(s);
   box.setFromObject(model);
   model.position.y -= box.min.y;

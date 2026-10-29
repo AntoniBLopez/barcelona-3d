@@ -301,7 +301,8 @@ export function onFrame(payload) {
     const show = item.visible && !(gaudiOnly && !mon.gaudi);
     el.style.transform = `translate(${item.x}px, ${item.y}px) translate(-50%, -120%)`;
     const pin = current && current.id === item.id;
-    rows.push({ el, show, pin, rank: (pin ? 100 : 0) + (item.major ? 8 : 0) });
+    const near = 480 / (item.depth || 24);
+    rows.push({ el, show, pin, rank: (pin ? 1000 : 0) + (item.major ? 70 : 0) + near });
   }
   declutter(rows);
   for (const s of payload.stations) {

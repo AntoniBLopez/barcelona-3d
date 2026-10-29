@@ -26,7 +26,7 @@ export function mat(color, opts = {}) {
   return m;
 }
 
-export const WIN = mat('#243044', {
+export const WIN = mat('#c5d0d8', {
   emissive: '#ffb15a',
   emissiveIntensity: 2.3,
   roughness: 0.4,

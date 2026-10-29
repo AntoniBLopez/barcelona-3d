@@ -57,15 +57,14 @@ function spanDry(a, b) {
 export function buildStreets(world) {
   const group = new THREE.Group();
   const specs = [
-    [CITY.axes.rambla, 28, '#c4b08a'],
+    [CITY.axes.rambla, 48, '#f6e4c4'],
     [CITY.axes.poblenou, 24, '#c4b08a'],
   ];
   for (const [line, width, color] of specs) {
-    // Stop La Rambla short of the Columbus column so the promenade doesn't cut the base.
-    const pts = line === CITY.axes.rambla ? [line[0], [2.17481, 41.37933]] : line;
-    const mesh = ribbon(pts, width, 0.035, color);
+    const mesh = ribbon(line, width, 0.035, color);
     if (mesh) group.add(mesh);
   }
+  plantPromenade(world, CITY.axes.rambla);
   const avenue = ribbon(GAUDI_AVE, 34, 0.05, '#e6dcc8');
   const median = ribbon(GAUDI_AVE, 10, 0.062, '#5e8f46');
   if (avenue) group.add(avenue);
@@ -76,6 +75,50 @@ export function buildStreets(world) {
   }
   world.add(group);
   return group;
+}
+
+function plantPromenade(world, line) {
+  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.45, 0.6, 1, 5), mat('#8a5a3c'), 90);
+  const crown = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 5), mat('#3f8f48'), 90);
+  trunk.count = 0;
+  crown.count = 0;
+  const dummy = new THREE.Object3D();
+  const latM = 111320;
+  const lngM = 111320 * Math.cos((41.401 * Math.PI) / 180);
+  for (let i = 1; i < line.length && trunk.count < 86; i++) {
+    const dx = (line[i][0] - line[i - 1][0]) * lngM;
+    const dy = (line[i][1] - line[i - 1][1]) * latM;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const steps = Math.max(1, Math.round(len / 42));
+    for (let s = 0; s < steps && trunk.count < 86; s++) {
+      const t = (s + 0.5) / steps;
+      const lng = line[i - 1][0] + (line[i][0] - line[i - 1][0]) * t;
+      const lat = line[i - 1][1] + (line[i][1] - line[i - 1][1]) * t;
+      for (const off of [-11, 11]) {
+        if (!onLand(lat + (ny * off) / latM, lng + (nx * off) / lngM, 4)) continue;
+        const olat = lat + (ny * off) / latM;
+        const olng = lng + (nx * off) / lngM;
+        const gnd = groundRadius(olat, olng);
+        placeOn(dummy, olat, olng, gnd, 0);
+        dummy.scale.set(0.55 * U_PER_M, 5.5 * U_PER_M, 0.55 * U_PER_M);
+        dummy.position.addScaledVector(dummy.userData.normal, 2.6 * U_PER_M);
+        dummy.updateMatrix();
+        trunk.setMatrixAt(trunk.count, dummy.matrix);
+        placeOn(dummy, olat, olng, gnd, 0);
+        dummy.scale.set(7.5 * U_PER_M, 6.5 * U_PER_M, 7.5 * U_PER_M);
+        dummy.position.addScaledVector(dummy.userData.normal, 6.2 * U_PER_M);
+        dummy.updateMatrix();
+        crown.setMatrixAt(crown.count, dummy.matrix);
+        trunk.count++;
+        crown.count++;
+      }
+    }
+  }
+  trunk.instanceMatrix.needsUpdate = true;
+  crown.instanceMatrix.needsUpdate = true;
+  world.add(trunk, crown);
 }
 
 export function buildTramTracks(world) {

@@ -172,7 +172,7 @@ body.panel-open .hero, body.panel-open .credit { opacity: 0; pointer-events: non
   opacity: 0; pointer-events: none;
   transition: opacity .1s ease, transform .1s ease;
 }
-.tools button:hover::after, .tools button:focus-visible::after {
+.tools button:hover::after {
   opacity: 1; transform: translateX(-50%) translateY(0); transition-delay: .08s;
 }
 .keys {

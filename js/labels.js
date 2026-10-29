@@ -27,16 +27,25 @@ export function bindLabelZoom(zoomBy, pinchBy) {
  * Hide names that would sit on top of each other. Zooming in spreads them
  * apart, so more names come back. `rank` decides who keeps the spot.
  */
+function overlaps(a, b) {
+  return !(a.r < b.l || a.l > b.r || a.b < b.t || a.t > b.b);
+}
+
 export function declutter(rows) {
   const placed = [];
+  const chrome = [...document.querySelectorAll('.tools, #hint, .hero, .credit')].flatMap((el) => {
+    const b = el.getBoundingClientRect();
+    if (b.width < 2 || b.height < 2 || getComputedStyle(el).opacity === '0') return [];
+    return [{ l: b.left - 6, r: b.right + 6, t: b.top - 4, b: b.bottom + 4 }];
+  });
   const sorted = rows.filter((r) => r.show).sort((a, b) => b.rank - a.rank);
   for (const r of rows) r.el.classList.toggle('hidden', !r.show);
   for (const r of sorted) {
     r.el.classList.remove('hidden');
     const b = r.el.getBoundingClientRect();
     if (b.width < 2) continue;
-    const box = { l: b.left - 4, r: b.right + 4, t: b.top - 3, b: b.bottom + 3 };
-    const hit = placed.some((p) => !(box.r < p.l || box.l > p.r || box.b < p.t || box.t > p.b));
+    const box = { l: b.left - 12, r: b.right + 12, t: b.top - 8, b: b.bottom + 8 };
+    const hit = placed.some((p) => overlaps(box, p)) || chrome.some((z) => overlaps(box, z));
     if (hit && !r.pin) r.el.classList.add('hidden');
     else placed.push(box);
   }

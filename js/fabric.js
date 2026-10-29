@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { FABRIC } from '../data/fabric.js';
 import { MONUMENTS } from './monuments.js';
-import { SIZE } from './fit.js';
+import { SIZE, BOOST } from './fit.js';
 import { CITY } from '../data/city.js';
 import { inEixampleGrid } from './eixample.js';
 import { placeOn, U_PER_M } from './geo.js';
@@ -164,10 +164,19 @@ function centroid(flat) {
 
 function reserved(lat, lng) {
   for (const m of MONUMENTS) {
-    const span = (SIZE[m.id]?.[0] || 30) / 2 + 18;
+    const span = ((SIZE[m.id]?.[0] || 30) * (BOOST[m.id] || 1.5)) / 2 + 22;
     if (Math.hypot((lat - m.lat) * M_LAT, (lng - m.lng) * M_LNG) < span) return true;
   }
   return false;
+}
+
+function footprint(flat) {
+  let a = 0;
+  for (let i = 0; i < flat.length; i += 2) {
+    const j = (i + 2) % flat.length;
+    a += flat[i] * flat[j + 1] - flat[j] * flat[i + 1];
+  }
+  return Math.abs(a) * 0.5 * M_LNG * M_LAT;
 }
 
 function wetFoot(flat, coastM) {
@@ -278,19 +287,22 @@ function addRibbon(pos, idx, line, widthM, lift) {
     idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
   }
 }
-
 const TINT = ['#e6d3ba', '#dcc6a4', '#f1e3cc', '#cbb496'];
+function inQuarter(lat, lng) {
+  const grid = lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186 && !(lat < 41.383 && lng > 2.16 && lng < 2.182) && !(lat > 41.4002 && lng > 2.146 && lng < 2.166);
+  if (grid) return false;
+  return (lat > 41.371 && lat < 41.389 && lng > 2.162 && lng < 2.185) || (lat > 41.372 && lat < 41.386 && lng > 2.181 && lng < 2.196) || (lat > 41.397 && lat < 41.413 && lng > 2.144 && lng < 2.168);
+}
 
-/** OSM streets and buildings for the whole city, outside the chamfered Eixample grid. */
 export function buildFabric(world) {
   const buckets = [[], [], [], []];
   let kept = 0;
   for (const row of FABRIC.buildings) {
     const h = row[0];
     let flat = row.slice(1);
-    if (flat.length < 6) continue;
+    if (flat.length < 6 || footprint(flat) < 900) continue;
     let [lng, lat] = centroid(flat);
-    if (!inCity(lat, lng) || inEixampleGrid(lat, lng) || reserved(lat, lng)) continue;
+    if (!inCity(lat, lng) || inEixampleGrid(lat, lng) || inQuarter(lat, lng) || reserved(lat, lng)) continue;
     const gnd = sampleGround(lat, lng);
     if (gnd.sea || gnd.park || gnd.beach || gnd.kind === 'forest' || gnd.kind === 'delta') continue;
     if (wetFoot(flat, gnd.coastM)) continue;
@@ -306,13 +318,11 @@ export function buildFabric(world) {
   TINT.forEach((color, i) => {
     if (!buckets[i].length) return;
     const mesh = new THREE.Mesh(merge(buckets[i]), mat(color));
-    mesh.castShadow = true;
+    mesh.castShadow = false;
     mesh.receiveShadow = true;
     world.add(mesh);
   });
 
-  const pale = [];
-  const paleIdx = [];
   const roads = [];
   const roadIdx = [];
   for (const row of FABRIC.streets) {
@@ -322,8 +332,8 @@ export function buildFabric(world) {
     if (line.length < 2) continue;
     const mid = line[line.length >> 1];
     if (!inCity(mid[1], mid[0]) && cityDistance(mid[1], mid[0]) > 90) continue;
-    if (width >= 11) addRibbon(pale, paleIdx, line, width * 1.65, 0.016);
-    addRibbon(roads, roadIdx, line, width, 0.026);
+    if (width < 14) continue;
+    addRibbon(roads, roadIdx, line, Math.max(width * 1.8, 26), 0.03);
   }
   const pave = (pos, idx, color) => {
     if (!idx.length) return;
@@ -335,6 +345,5 @@ export function buildFabric(world) {
     mesh.receiveShadow = true;
     world.add(mesh);
   };
-  pave(pale, paleIdx, '#cfc3ae');
-  pave(roads, roadIdx, '#3c434e');
+  pave(roads, roadIdx, '#efe6d4');
 }
