@@ -3,37 +3,11 @@ import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA, checkerTexture }
 import { guell } from './models-guell.js';
 import { sagrada } from './models-sagrada.js';
 import { batllo } from './models-batllo.js';
+import { pedrera } from './models-pedrera.js';
 
 const stone = () => mat('#e6d5bc');
 const bone = () => mat('#f4f0e6');
 const iron = () => mat('#2c3138', { roughness: 0.45, metalness: 0.35 });
-
-/** La Pedrera: an undulating stone cliff and the rooftop warriors. */
-export function pedrera() {
-  const g = new THREE.Group();
-  const rock = mat('#ddd2c2');
-  const rockD = mat('#cfc3b0');
-  for (let i = 0; i < 8; i++) {
-    const x = -1.15 + i * 0.32;
-    const z = Math.sin(i * 0.85) * 0.12;
-    const h = 1.15 + Math.sin(i * 1.3) * 0.12;
-    add(g, box(0.34, h, 0.62), i % 2 ? rock : rockD, x, h / 2, z);
-    add(g, box(0.2, 0.1, 0.03), WIN, x, h * 0.45, z + 0.33);
-    add(g, box(0.22, 0.035, 0.08), iron(), x, h * 0.62, z + 0.36);
-  }
-  add(g, box(2.5, 0.08, 0.9), rock, 0, 1.28, 0);
-  const helmets = [[-0.9, 0.2], [-0.4, -0.15], [0.05, 0.18], [0.5, -0.1], [0.95, 0.12], [0.2, 0.28]];
-  helmets.forEach(([x, z], i) => {
-    add(g, cyl(0.1, 0.13, 0.28, 6), stone(), x, 1.5, z);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 7, 5), i % 2 ? bone() : stone());
-    head.scale.y = 1.35;
-    head.position.set(x, 1.74, z);
-    head.castShadow = true;
-    g.add(head);
-    add(g, cyl(0.02, 0.02, 0.16, 4), stone(), x, 1.95, z);
-  });
-  return g;
-}
 
 /** Casa Vicens: green-and-cream checker tile and little turrets. */
 export function vicens() {

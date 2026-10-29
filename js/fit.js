@@ -6,7 +6,7 @@ export const SIZE = {
   sagrada: [110, 192],
   guell: [150, 42],
   batllo: [38, 46],
-  pedrera: [42, 30],
+  pedrera: [40, 36],
   vicens: [22, 18],
   palauguell: [26, 26],
   bellesguard: [18, 32],
@@ -39,7 +39,7 @@ export const SIZE = {
 
 /** Local +Z is south, so the sail's face looks out over the port. */
 /** Casa Batlló's facade looks northeast, onto Passeig de Gràcia. */
-export const YAW = { batllo: 2.32, arc: 0.82, santpau: -0.08, colon: 0.54 };
+export const YAW = { batllo: 2.32, arc: 0.82, santpau: -0.08, colon: 0.54, pedrera: 3.01 };
 
 /** [lng, lat] of Avinguda de Gaudí, from the Sagrada Família to Sant Pau. */
 export const GAUDI_AVE = [[2.17455, 41.40435], [2.17542, 41.41315]];
