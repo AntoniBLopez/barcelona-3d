@@ -39,7 +39,7 @@ export async function createScene(canvas, hooks) {
   const sun = new THREE.DirectionalLight('#ffe6c4', 2.05);
   sun.castShadow = !coarse;
   sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 2, far: 80 });
+  Object.assign(sun.shadow.camera, { left: -36, right: 36, top: 36, bottom: -36, near: 2, far: 90 });
   sun.shadow.bias = -0.0004;
   const rim = new THREE.DirectionalLight('#d5e7ff', 0.7);
   scene.add(hemi, sun, sun.target, rim);
@@ -212,12 +212,12 @@ export async function createScene(canvas, hooks) {
     const shift = street ? 0.08 : Math.min(0.55, h * 1.2);
     const focus = n.clone().multiplyScalar(m.base + h * lift).add(east.clone().multiplyScalar(shift));
     const dist = m.id === 'sagrada'
-      ? 2.6
+      ? 4.8
       : bowl
-        ? 2.55
+        ? 4.7
         : street
-          ? 2.5
-          : Math.min(9, Math.max(2.5, h * 7 + (m.worldSpan || h) * 3.2));
+          ? 4.6
+          : Math.min(16, Math.max(4.6, h * 7 + (m.worldSpan || h) * 3.2));
     rig.flyTo(view, dist * (innerWidth > 860 ? 1 : 1.25), focus, 1700);
     ring.position.set(m.id === 'santpau' ? 0.02 : 0, m.id === 'arc' || m.id === 'santpau' || m.id === 'colon' || m.id === 'pedrera' ? 0.003 : 0.02, m.id === 'santpau' ? 0.2 : 0);
     const halo = m.id === 'arc' ? m.worldH * 0.5 : m.id === 'santpau' ? m.worldH * 0.28 : (m.worldSpan || 0.2);

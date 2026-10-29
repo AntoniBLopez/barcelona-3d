@@ -193,7 +193,7 @@ export function createCamera(camera, canvas) {
         state.distTo = state.dist;
       }
     }
-    if (state.focus) state.focus.dTo = Math.min(28, Math.max(2.4, state.focus.dTo * f));
+    if (state.focus) state.focus.dTo = Math.min(28, Math.max(4.2, state.focus.dTo * f));
     else state.distTo = Math.min(state.max, Math.max(state.min, state.distTo * f));
   }
   const up = (e) => {

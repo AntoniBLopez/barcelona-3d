@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CITY } from '../data/city.js';
-import { project, dirLL, placeOn, U_PER_M } from './geo.js';
+import { project, dirLL, placeOn, U_PER_M, RELIEF } from './geo.js';
 import { GAUDI_AVE } from './fit.js';
 import { groundRadius } from './terrain.js';
 import { add, box, cyl, mat, WIN } from './kit.js';
@@ -19,7 +19,7 @@ function framesOf(points, lift) {
 /** A ribbon lying on the sphere. `points` are [lng, lat] pairs. */
 export function ribbon(points, widthM, lift, color, opts = {}) {
   if (!points || points.length < 2) return null;
-  const frames = framesOf(points, lift);
+  const frames = framesOf(hug(points), lift);
   const half = (widthM * U_PER_M) / 2;
   const pos = [];
   const idx = [];
@@ -136,6 +136,17 @@ function shiftLine(line, meters) {
   });
 }
 
+function hug(points) {
+  const out = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const n = Math.max(1, Math.ceil(Math.hypot((b[0] - a[0]) * M_LNG, (b[1] - a[1]) * M_LAT) / 160));
+    for (let k = 1; k <= n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]);
+  }
+  return out;
+}
+
 function resample(line, step) {
   const out = [line[0]];
   let carry = step;
@@ -224,7 +235,8 @@ export function buildMetro(world) {
   const color = new THREE.Color();
   CITY.metro.entrances.forEach((e, i) => {
     const gnd = groundRadius(e[1], e[0]);
-    placeOn(_dummy, e[1], e[0], gnd + 0.05, 0);
+    placeOn(_dummy, e[1], e[0], gnd + 0.05 * RELIEF, 0);
+    _dummy.scale.setScalar(RELIEF);
     _dummy.updateMatrix();
     mesh.setMatrixAt(i, _dummy.matrix);
     color.set(CITY.metro.colors[e[2]] || '#9aa3ad');
@@ -242,7 +254,8 @@ export function buildMetro(world) {
   stations.count = CITY.metro.stations.length;
   stations.visible = false;
   CITY.metro.stations.forEach((s, i) => {
-    placeOn(_dummy, s.lat, s.lng, groundRadius(s.lat, s.lng) + 0.08, 0);
+    placeOn(_dummy, s.lat, s.lng, groundRadius(s.lat, s.lng) + 0.08 * RELIEF, 0);
+    _dummy.scale.setScalar(RELIEF);
     _dummy.updateMatrix();
     stations.setMatrixAt(i, _dummy.matrix);
     color.set(CITY.metro.colors[s.lines[0]] || '#c8102e');
@@ -261,7 +274,7 @@ export function buildShip(world) {
   add(g, box(0.1, 0.06, 0.16), mat('#f7f4ef'), 0, 0.11, -0.05);
   add(g, box(0.08, 0.04, 0.12), WIN, 0, 0.12, -0.05);
   add(g, box(0.16, 0.02, 0.2), mat('#a11d33'), 0.02, 0.08, 0.16);
-  g.scale.setScalar(1.15);
+  g.scale.setScalar(1.15 * RELIEF);
   world.add(g);
   return g;
 }
@@ -277,7 +290,7 @@ export function stepShip(ship, t) {
   const b = path[Math.min(path.length - 1, i + 1)];
   const lat = a[1] + (b[1] - a[1]) * k;
   const lng = a[0] + (b[0] - a[0]) * k;
-  placeOn(ship, lat, lng, groundRadius(lat, lng) + 0.06, 0);
+  placeOn(ship, lat, lng, groundRadius(lat, lng) + 0.1, 0);
   const ahead = dirLL(project(b[1], b[0]).lat, project(b[1], b[0]).lon);
   const dir = ahead.sub(ship.userData.normal.clone().multiplyScalar(ahead.dot(ship.userData.normal)));
   ship.rotateY(Math.atan2(dir.dot(ship.userData.east), dir.dot(ship.userData.south)));

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { CITY } from '../data/city.js';
-import { R, unprojectDir, placeOn } from './geo.js';
+import { R, unprojectDir, placeOn, RELIEF } from './geo.js';
 import { mat } from './kit.js';
+import { buildDistricts } from './districts.js';
 
 const M_LAT = 111320;
 const M_LNG = 111320 * Math.cos((41.3905 * Math.PI) / 180);
@@ -111,13 +112,17 @@ export function sampleGround(lat, lng) {
   const carmel = gauss(lat, lng, 41.4188, 2.157, 700);
   const ridge = Math.max(tibi * 1.18, ridgeW * 0.7, ridgeE * 0.58);
   const hill = mont * 0.42 + ridge + carmel * 0.26;
-  const radius = sea ? R - 0.04 : R + 0.1 + hill + (beach ? -0.04 : 0);
+  const farM = Math.hypot((lng - 2.168) * M_LNG, (lat - 41.3905) * M_LAT);
+  if (farM > 15000 && lat < 41.4) sea = true;
+  const rise = 1.4;
+  const radius = sea ? R - 0.045 * rise : R + 0.1 * rise + hill * rise + (beach ? -0.04 * rise : 0);
   let kind = 'city';
   if (sea) kind = 'sea';
   else if (beach) kind = 'beach';
   else if (park || mont > 0.35) kind = 'park';
-  else if (tibi > 0.2 || ridgeW > 0.32 || ridgeE > 0.28) kind = 'forest';
+  else if (tibi > 0.2 || ridgeW > 0.32 || ridgeE > 0.28 || (farM > 11000 && lat > 41.4)) kind = 'forest';
   else if (lat > 41.372 && lat < 41.408 && lng > 2.142 && lng < 2.188) kind = 'eixample';
+  else if (lat < 41.368 && lng < 2.19 && lng > 2.05) kind = 'delta';
   return { sea, beach, park, kind, radius, coastM };
 }
 
@@ -132,6 +137,7 @@ const PAL = {
   eixample: new THREE.Color('#d8c4a2'),
   park: new THREE.Color('#6a9a48'),
   forest: new THREE.Color('#4f7d3e'),
+  delta: new THREE.Color('#c5d392'),
 };
 
 function hash(i) {
@@ -142,7 +148,7 @@ function hash(i) {
 
 /** The planet: sea, beach, Eixample plain, Montjuïc and Collserola. */
 export function buildPlanet(world) {
-  const src = new THREE.IcosahedronGeometry(1, 5).toNonIndexed();
+  const src = new THREE.IcosahedronGeometry(1, 6).toNonIndexed();
   const pos = src.attributes.position;
   const col = new Float32Array(pos.count * 3);
   const v = new THREE.Vector3();
@@ -199,8 +205,8 @@ function scatter(world, rings, count, tint) {
     if (!inside(lng, lat, ring)) continue;
     const gnd = sampleGround(lat, lng);
     if (gnd.sea) continue;
-    placeOn(_treeDummy, lat, lng, gnd.radius + 0.08, 0);
-    _treeDummy.scale.setScalar(0.28 + Math.random() * 0.2);
+    placeOn(_treeDummy, lat, lng, gnd.radius + 0.08 * RELIEF, 0);
+    _treeDummy.scale.setScalar((0.28 + Math.random() * 0.2) * RELIEF);
     _treeDummy.updateMatrix();
     trunk.setMatrixAt(trunk.count, _treeDummy.matrix);
     _treeDummy.position.addScaledVector(_treeDummy.userData.normal, 0.12 * _treeDummy.scale.x);
@@ -218,6 +224,7 @@ export function buildTrees(world) {
   scatter(world, CITY.parks.ciutadella, 40, '#3f7a35');
   scatter(world, CITY.parks.montjuic, 70, '#5d8a40');
   scatter(world, CITY.parks.guell, 36, '#6a9a48');
+  buildDistricts(world);
 }
 
 export { buildEixample } from './eixample.js';
