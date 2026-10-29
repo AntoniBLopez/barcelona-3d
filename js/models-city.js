@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA } from './kit.js';
 import { campnou } from './models-campnou.js';
+import { arc } from './models-arc.js';
 
 const stone = () => mat('#e4d5bc');
 const brick = () => mat('#b5644a');
@@ -66,21 +67,6 @@ export function catalunya() {
     const a = (i / 6) * Math.PI * 2;
     add(g, box(0.08, 0.16, 0.08), mat('#cfd6dc'), Math.cos(a) * 0.48, 0.12, Math.sin(a) * 0.48);
   }
-  return g;
-}
-
-export function arc() {
-  const g = new THREE.Group();
-  const br = brick();
-  add(g, box(5, 24, 5), br, -10, 12, 0);
-  add(g, box(5, 24, 5), br, 10, 12, 0);
-  add(g, box(26, 5, 6), br, 0, 26, 0);
-  add(g, box(12, 11, 1.2), mat('#1d2430'), 0, 11, 0);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(7, 1.1, 6, 16, Math.PI), br);
-  ring.position.set(0, 14, 0);
-  g.add(ring);
-  add(g, box(10, 2.4, 4), stone(), 0, 30, 0);
-  for (const x of [-10, 0, 10]) add(g, cone(1.3, 3.2, 4), stone(), x, 33, 0);
   return g;
 }
 

@@ -15,7 +15,7 @@ export const SIZE = {
   gotic: [44, 20],
   rambla: [26, 12],
   catalunya: [42, 14],
-  arc: [30, 30],
+  arc: [220, 32],
   castell: [64, 20],
   mnac: [100, 40],
   estadi: [86, 26],
@@ -39,7 +39,7 @@ export const SIZE = {
 
 /** Local +Z is south, so the sail's face looks out over the port. */
 /** Casa Batlló's facade looks northeast, onto Passeig de Gràcia. */
-export const YAW = { batllo: 2.32 };
+export const YAW = { batllo: 2.32, arc: 0.82 };
 
 const box = new THREE.Box3();
 const size = new THREE.Vector3();

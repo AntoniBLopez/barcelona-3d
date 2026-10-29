@@ -242,6 +242,8 @@ export function buildEixample(world) {
   };
   const inside = (lat, lng) => lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186
     && !(lat < 41.383 && lng > 2.16 && lng < 2.182);
+  const arc = MONUMENTS.find((m) => m.id === 'arc');
+  const arcKeep = (SIZE.arc?.[0] || 200) / 2 + 70;
   let n = 0;
   for (let ix = -16; ix <= 16; ix++) {
     for (let iy = -14; iy <= 14; iy++) {
@@ -249,7 +251,8 @@ export function buildEixample(world) {
       if (!inside(lat, lng)) continue;
       const gnd = sampleGround(lat, lng);
       if (gnd.sea || gnd.park || gnd.beach) continue;
-      pave(dummy, walk, road, cell, ix, iy, step, ang);
+      const byArch = Math.hypot((lat - arc.lat) * M_LAT, (lng - arc.lng) * M_LNG) < arcKeep;
+      if (!byArch) pave(dummy, walk, road, cell, ix, iy, step, ang);
       if (blocked(lat, lng, avenues)) continue;
       const h = (16 + (Math.abs(ix * 7 + iy * 3) % 5) * 3) * U_PER_M;
       placeOn(dummy, lat, lng, gnd.radius, ang);
