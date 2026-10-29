@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { MONUMENTS } from './monuments.js';
 import { SIZE, GAUDI_AVE } from './fit.js';
 import { placeOn, U_PER_M, R } from './geo.js';
+import { CITY } from '../data/city.js';
 import { sampleGround } from './terrain.js';
 import { mat } from './kit.js';
 
@@ -15,10 +16,38 @@ function hash(i) {
   return (h >>> 0) / 4294967296;
 }
 
+function nearLine(lat, lng, line, limit) {
+  const x = lng * M_LNG;
+  const y = lat * M_LAT;
+  for (let i = 0; i < line.length - 1; i++) {
+    const ax = line[i][0] * M_LNG;
+    const ay = line[i][1] * M_LAT;
+    const bx = line[i + 1][0] * M_LNG;
+    const by = line[i + 1][1] * M_LAT;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
+    if (Math.hypot(x - ax - dx * t, y - ay - dy * t) < limit) return true;
+  }
+  return false;
+}
 function eixample(lat, lng) {
-  return lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186
-    && !(lat < 41.383 && lng > 2.16 && lng < 2.182)
-    && !(lat > 41.4002 && lng > 2.146 && lng < 2.166);
+  const ciutat = lat < 41.383 && lng > 2.16 && lng < 2.182;
+  const gracia = lat > 41.4002 && lng > 2.146 && lng < 2.166;
+  const classic = lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186;
+  const corridor = nearLine(lat, lng, CITY.axes.diagonal, 155);
+  return (classic || corridor) && !ciutat && !gracia;
+}
+function ashore(lat, lng, span) {
+  const dLat = (span / 2 + 18) / M_LAT;
+  const dLng = (span / 2 + 18) / M_LNG;
+  for (const la of [lat - dLat, lat, lat + dLat]) {
+    for (const ln of [lng - dLng, lng, lng + dLng]) {
+      if (sampleGround(la, ln).sea) return false;
+    }
+  }
+  return true;
 }
 function quarter(lat, lng) {
   return (lat > 41.371 && lat < 41.388 && lng > 2.162 && lng < 2.185)
@@ -69,8 +98,10 @@ export function buildDistricts(world) {
       if (h > 0.84) continue;
       const gnd = sampleGround(lat, lng);
       if (gnd.sea || gnd.beach || gnd.park || gnd.kind === 'forest' || gnd.kind === 'delta') continue;
-      if (gnd.coastM < 45 || eixample(lat, lng) || quarter(lat, lng) || blocked(lat, lng)) continue;
+      if (gnd.coastM < 80 || eixample(lat, lng) || quarter(lat, lng) || blocked(lat, lng)) continue;
+      if (nearLine(lat, lng, CITY.axes.diagonal, 40)) continue;
       const span = 92 + h * 22;
+      if (!ashore(lat, lng, span)) continue;
       const depth = span * (0.72 + hash(i + 17) * 0.24);
       const height = 12 + hash(i + 3) * 14;
       const tall = height * U_PER_M;
@@ -85,9 +116,12 @@ export function buildDistricts(world) {
       const slotF = fine[0].count <= fine[1].count ? fine[0] : fine[1];
       if (slotF.count >= 5100) continue;
       const fs = 30 + h * 16;
+      const flat = lat + 0.00042;
+      const flng = lng + 0.00048;
+      if (!ashore(flat, flng, fs)) continue;
       const ft = (8 + hash(i + 9) * 10) * U_PER_M;
       dummy.scale.set(fs * U_PER_M, ft, fs * 0.8 * U_PER_M);
-      placeOn(dummy, lat + 0.00062, lng + 0.00072, gnd.radius + ft / 2, h);
+      placeOn(dummy, flat, flng, sampleGround(flat, flng).radius + ft / 2, h);
       dummy.updateMatrix();
       slotF.setMatrixAt(slotF.count++, dummy.matrix);
     }

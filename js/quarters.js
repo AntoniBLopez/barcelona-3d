@@ -3,7 +3,8 @@ import { QUARTERS } from '../data/quarters.js';
 import { MONUMENTS } from './monuments.js';
 import { SIZE } from './fit.js';
 import { placeOn, U_PER_M } from './geo.js';
-import { groundRadius, sampleGround } from './terrain.js';
+import { CITY } from '../data/city.js';
+import { groundRadius, sampleGround, onLand } from './terrain.js';
 import { mat } from './kit.js';
 
 const M_LAT = 111320;
@@ -11,10 +12,38 @@ const M_LNG = 111320 * Math.cos((41.3905 * Math.PI) / 180);
 const dummy = new THREE.Object3D();
 const side = new THREE.Vector3();
 
+function nearLine(lat, lng, line, limit) {
+  const x = lng * M_LNG;
+  const y = lat * M_LAT;
+  for (let i = 0; i < line.length - 1; i++) {
+    const ax = line[i][0] * M_LNG;
+    const ay = line[i][1] * M_LAT;
+    const bx = line[i + 1][0] * M_LNG;
+    const by = line[i + 1][1] * M_LAT;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
+    if (Math.hypot(x - ax - dx * t, y - ay - dy * t) < limit) return true;
+  }
+  return false;
+}
 function inEixample(lat, lng) {
-  return lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186
-    && !(lat < 41.383 && lng > 2.16 && lng < 2.182)
-    && !(lat > 41.4002 && lng > 2.146 && lng < 2.166);
+  const ciutat = lat < 41.383 && lng > 2.16 && lng < 2.182;
+  const gracia = lat > 41.4002 && lng > 2.146 && lng < 2.166;
+  const classic = lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186;
+  return (classic || nearLine(lat, lng, CITY.axes.diagonal, 155)) && !ciutat && !gracia;
+}
+function wetFoot(flat) {
+  const n = flat.length;
+  for (let i = 0; i < n; i += 2) {
+    const j = (i + 2) % n;
+    const lat = flat[i + 1];
+    const lng = flat[i];
+    if (!onLand(lat, lng, 10)) return true;
+    if (!onLand((lat + flat[j + 1]) / 2, (lng + flat[j]) / 2, 10)) return true;
+  }
+  return false;
 }
 
 function reserved(lat, lng) {
@@ -117,6 +146,11 @@ function addRibbon(pos, idx, line, widthM, lift) {
     pos.push(left.x, left.y, left.z, right.x, right.y, right.z);
   }
   for (let i = 0; i < frames.length - 1; i++) {
+    const aPt = line[i];
+    const bPt = line[i + 1];
+    const midLat = (aPt[1] + bPt[1]) / 2;
+    const midLng = (aPt[0] + bPt[0]) / 2;
+    if (!onLand(aPt[1], aPt[0]) || !onLand(bPt[1], bPt[0]) || !onLand(midLat, midLng)) continue;
     const a = base + i * 2;
     idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
   }
@@ -137,7 +171,7 @@ export function buildQuarters(world) {
     for (const [h, flat] of data.buildings) {
       const [lng, lat] = centroid(flat);
       const gnd = sampleGround(lat, lng);
-      if (gnd.sea || gnd.park || gnd.beach || inEixample(lat, lng) || reserved(lat, lng)) continue;
+      if (gnd.sea || gnd.park || gnd.beach || wetFoot(flat) || inEixample(lat, lng) || reserved(lat, lng)) continue;
       const geo = prism(flat, h);
       if (geo) buckets[h % 2].push(geo);
     }

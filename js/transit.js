@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CITY } from '../data/city.js';
 import { project, dirLL, placeOn, U_PER_M, RELIEF } from './geo.js';
 import { GAUDI_AVE } from './fit.js';
-import { groundRadius } from './terrain.js';
+import { groundRadius, onLand } from './terrain.js';
 import { add, box, cyl, mat, WIN } from './kit.js';
 
 function framesOf(points, lift) {
@@ -19,6 +19,7 @@ function framesOf(points, lift) {
 /** A ribbon lying on the sphere. `points` are [lng, lat] pairs. */
 export function ribbon(points, widthM, lift, color, opts = {}) {
   if (!points || points.length < 2) return null;
+  const { water, ...look } = opts;
   const frames = framesOf(hug(points), lift);
   const half = (widthM * U_PER_M) / 2;
   const pos = [];
@@ -34,6 +35,7 @@ export function ribbon(points, widthM, lift, color, opts = {}) {
     pos.push(left.x, left.y, left.z, right.x, right.y, right.z);
   }
   for (let i = 0; i < frames.length - 1; i++) {
+    if (!water && !spanDry(frames[i], frames[i + 1])) continue;
     const a = i * 2;
     idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
   }
@@ -41,9 +43,15 @@ export function ribbon(points, widthM, lift, color, opts = {}) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setIndex(idx);
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, mat(color, opts));
+  const mesh = new THREE.Mesh(geo, mat(color, look));
   mesh.receiveShadow = true;
   return mesh;
+}
+
+function spanDry(a, b) {
+  const midLat = (a.lat + b.lat) / 2;
+  const midLng = (a.lng + b.lng) / 2;
+  return onLand(a.lat, a.lng) && onLand(b.lat, b.lng) && onLand(midLat, midLng);
 }
 
 export function buildStreets(world) {
@@ -63,7 +71,7 @@ export function buildStreets(world) {
   if (avenue) group.add(avenue);
   if (median) group.add(median);
   for (const line of [CITY.rivers.besos, CITY.rivers.llobregat]) {
-    const mesh = ribbon(line, 90, 0.02, '#3d86a8', { roughness: 0.35, metalness: 0.05 });
+    const mesh = ribbon(line, 90, 0.02, '#3d86a8', { roughness: 0.35, metalness: 0.05, water: true });
     if (mesh) group.add(mesh);
   }
   world.add(group);

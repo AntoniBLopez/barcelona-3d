@@ -3,7 +3,7 @@ import { CITY } from '../data/city.js';
 import { MONUMENTS } from './monuments.js';
 import { SIZE, GAUDI_AVE } from './fit.js';
 import { placeOn, U_PER_M } from './geo.js';
-import { groundRadius, sampleGround } from './terrain.js';
+import { groundRadius, sampleGround, onLand } from './terrain.js';
 import { ribbon } from './transit.js';
 import { mat } from './kit.js';
 const M_LAT = 111320;
@@ -183,7 +183,8 @@ function bake(poly, height, bucket) {
   const [cx, cy] = centroid(poly);
   const [lng, lat] = toLL(cx, cy);
   const gnd = sampleGround(lat, lng);
-  if (gnd.sea || gnd.park || gnd.beach) return;
+  if (gnd.sea || gnd.park || gnd.beach || !onLand(lat, lng)) return;
+  if (poly.some(([e, n]) => !onLand(toLL(e, n)[1], toLL(e, n)[0], 8))) return;
   const pts = poly.map(([e, n]) => new THREE.Vector2((e - cx) * U_PER_M, -(n - cy) * U_PER_M));
   const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: height, bevelEnabled: false, curveSegments: 1 });
   geo.rotateX(-Math.PI / 2);
@@ -218,26 +219,21 @@ function disc(group, lat, lng, radius, color, lift) {
 export function buildEixample(world) {
   const colors = ['#e7d7c0', '#d9c3a4', '#f1e6d4', '#c9b294', '#efe4d2'];
   const buckets = colors.map(() => []);
-  const walk = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#8a8174'), 2600);
-  const road = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#3c424c'), 2600);
-  walk.count = 0;
-  road.count = 0;
-  world.add(walk, road);
-  const arc = MONUMENTS.find((m) => m.id === 'arc');
-  const arcKeep = (SIZE.arc?.[0] || 200) / 2 + 70;
-  const inside = (lat, lng) => lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186
-    && !(lat < 41.383 && lng > 2.16 && lng < 2.182)
-    && !(lat > 41.4002 && lng > 2.146 && lng < 2.166);
-  for (let ix = -16; ix <= 16; ix++) {
-    for (let iy = -14; iy <= 14; iy++) {
+  const inside = (lat, lng) => {
+    const ciutat = lat < 41.383 && lng > 2.16 && lng < 2.182;
+    const gracia = lat > 41.4002 && lng > 2.146 && lng < 2.166;
+    const classic = lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186;
+    const corridor = nearPoly(lat, lng, CITY.axes.diagonal, 155);
+    return (classic || corridor) && !ciutat && !gracia;
+  };
+  for (let ix = -24; ix <= 14; ix++) {
+    for (let iy = -34; iy <= 38; iy++) {
       const east = ix * STEP;
       const north = iy * STEP;
       const [lng, lat] = toLL(east, north);
       if (!inside(lat, lng)) continue;
       const gnd = sampleGround(lat, lng);
       if (gnd.sea || gnd.park || gnd.beach) continue;
-      const byArch = Math.hypot((lat - arc.lat) * M_LAT, (lng - arc.lng) * M_LNG) < arcKeep;
-      if (!byArch) pave(walk, road, ix, iy);
       if (reserved(lat, lng)) continue;
       const h = (16 + (Math.abs(ix * 7 + iy * 3) % 5) * 3) * U_PER_M;
       for (const part of carve(footprint(east, north))) bake(part, h, buckets[Math.abs(ix + iy * 3) % colors.length]);
@@ -250,32 +246,41 @@ export function buildEixample(world) {
     mesh.receiveShadow = true;
     world.add(mesh);
   });
-  walk.instanceMatrix.needsUpdate = true;
-  road.instanceMatrix.needsUpdate = true;
+  layStreets(world, inside);
   layAvenues(world);
   return buckets.reduce((n, b) => n + b.length, 0);
 }
-function pave(walk, road, ix, iy) {
-  const segs = [
-    [ix * STEP, iy * STEP - STEP / 2, STEP, 22, false],
-    [ix * STEP + STEP / 2, iy * STEP, 22, STEP, true],
-  ];
-  for (const [east, north, len, wid, alongNorth] of segs) {
-    if (inPlaza(east, north)) continue;
-    if (alongNorth && (Math.abs(east - 332.5) < 21 || Math.abs(east + 66.5) < 17)) continue;
-    if (!alongNorth && Math.abs(north - 66.5) < 18) continue;
+function layStreets(world, inside) {
+  const group = new THREE.Group();
+  const runs = [];
+  const push = (east, north, run) => {
     const [lng, lat] = toLL(east, north);
-    const gnd = sampleGround(lat, lng);
-    if (gnd.sea || gnd.park) continue;
-    placeOn(dummy, lat, lng, gnd.radius + 0.012, ANG);
-    dummy.scale.set(len * U_PER_M, 0.012, wid * U_PER_M);
-    dummy.updateMatrix();
-    walk.setMatrixAt(walk.count++, dummy.matrix);
-    dummy.scale.set((len - 2) * U_PER_M, 0.02, (wid - 6) * U_PER_M);
-    dummy.position.addScaledVector(dummy.userData.normal, 0.008);
-    dummy.updateMatrix();
-    road.setMatrixAt(road.count++, dummy.matrix);
+    const dry = inside(lat, lng) && onLand(lat, lng) && !inPlaza(east, north)
+      && !nearPoly(lat, lng, CITY.axes.diagonal, 27);
+    if (!dry) {
+      if (run.length > 1) runs.push(run.splice(0));
+      else run.length = 0;
+      return;
+    }
+    run.push([lng, lat]);
+  };
+  for (let iy = -34; iy <= 38; iy++) {
+    const run = [];
+    const north = iy * STEP + STEP / 2;
+    for (let east = -24 * STEP; east <= 14 * STEP; east += 36) push(east, north, run);
+    if (run.length > 1) runs.push(run);
   }
+  for (let ix = -24; ix <= 14; ix++) {
+    const run = [];
+    const east = ix * STEP + STEP / 2;
+    for (let north = -34 * STEP; north <= 38 * STEP; north += 36) push(east, north, run);
+    if (run.length > 1) runs.push(run);
+  }
+  for (const run of runs) {
+    band(group, run, 16, 0.018, '#c2b6a6');
+    band(group, run, 8, 0.026, '#2e343c');
+  }
+  world.add(group);
 }
 function layAvenues(world) {
   const group = new THREE.Group();
@@ -287,10 +292,10 @@ function layAvenues(world) {
     band(group, pts, ave.asphalt, ave.lift + 0.006, '#3a4048');
   }
   const diagonal = CITY.axes.diagonal;
-  band(group, diagonal, 50, 0.044, '#c9bba4');
-  band(group, shiftLL(diagonal, 17), 9, 0.052, '#3a4048');
-  band(group, shiftLL(diagonal, -17), 9, 0.052, '#3a4048');
-  band(group, diagonal, 14, 0.06, '#3f7a35');
+  band(group, diagonal, 52, 0.05, '#f3eadc');
+  band(group, shiftLL(diagonal, 16), 12, 0.058, '#2a3038');
+  band(group, shiftLL(diagonal, -16), 12, 0.058, '#2a3038');
+  band(group, diagonal, 11, 0.066, '#3d7a3a');
   band(group, shiftLL(diagonal, 1.7), 0.9, 0.07, '#1a1e24');
   band(group, shiftLL(diagonal, -1.7), 0.9, 0.07, '#1a1e24');
   for (const plaza of PLAZAS) {
@@ -318,13 +323,13 @@ function plantPlanes(world, line) {
       const t = dist / len;
       const lng = line[i - 1][0] + (line[i][0] - line[i - 1][0]) * t;
       const lat = line[i - 1][1] + (line[i][1] - line[i - 1][1]) * t;
-      if (sampleGround(lat, lng).sea) continue;
-      for (const off of [-21, -8, 8, 21]) {
+      if (!onLand(lat, lng, 8)) continue;
+      for (const off of [-23, -6, 6, 23]) {
         if (trunk.count >= 2790) break;
         const olng = lng + nx * off / M_LNG;
         const olat = lat + ny * off / M_LAT;
         const [oe, on] = toEN(olng, olat);
-        if (inPlaza(oe, on) || sampleGround(olat, olng).sea) continue;
+        if (inPlaza(oe, on) || !onLand(olat, olng, 8)) continue;
         const gnd = groundRadius(olat, olng);
         const sit = (sx, sy, sz, lift) => {
           placeOn(dummy, olat, olng, gnd, 0);

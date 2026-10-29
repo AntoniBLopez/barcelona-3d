@@ -193,37 +193,16 @@ export async function createScene(canvas, hooks) {
   function focusMonument(m) {
     followIdx = -1;
     const n = m.obj.userData.normal;
-    const south = m.obj.userData.south;
     const east = m.obj.userData.east;
-    const overhead = m.id === 'guell';
-    const basilica = m.id === 'sagrada';
-    const bowl = m.id === 'campnou';
-    const street = m.id === 'batllo' || m.id === 'arc' || m.id === 'santpau' || m.id === 'colon' || m.id === 'pedrera';
     const front = new THREE.Vector3(0, 0, 1).applyQuaternion(m.obj.quaternion);
-    const view = street
-      ? n.clone().multiplyScalar(m.id === 'arc' ? 0.18 : m.id === 'santpau' ? 0.28 : m.id === 'colon' ? 0.34 : m.id === 'pedrera' ? 0.32 : 0.42).add(front.multiplyScalar(m.id === 'arc' ? 1 : m.id === 'santpau' ? 1 : m.id === 'colon' ? 0.45 : m.id === 'pedrera' ? 1 : 0.9))
-        .add(east.clone().multiplyScalar(m.id === 'arc' ? 0.72 : m.id === 'santpau' ? 0.34 : m.id === 'colon' ? 0.9 : m.id === 'pedrera' ? 0.7 : 0)).normalize()
-      : n.clone().multiplyScalar(basilica ? 0.36 : bowl ? 0.8 : overhead ? 0.92 : 0.55)
-        .add(south.clone().multiplyScalar(basilica ? 0.84 : bowl ? 0.5 : overhead ? 0.4 : 0.78))
-        .add(east.clone().multiplyScalar(basilica ? 0.42 : bowl ? 0.28 : 0.2))
-        .normalize();
     const h = m.worldH || 0.08;
-    const lift = basilica ? 0.52 : bowl ? 0.25 : m.id === 'arc' ? 0.34 : m.id === 'santpau' ? 0.36 : m.id === 'colon' ? 0.48 : m.id === 'pedrera' ? 0.42 : street ? 0.55 : 0.45;
-    const shift = street ? 0.08 : Math.min(0.55, h * 1.2);
-    const focus = n.clone().multiplyScalar(m.base + h * lift).add(east.clone().multiplyScalar(shift));
-    const dist = m.id === 'sagrada'
-      ? 4.8
-      : bowl
-        ? 4.7
-        : street
-          ? 4.6
-          : Math.min(16, Math.max(4.6, h * 7 + (m.worldSpan || h) * 3.2));
-    rig.flyTo(view, dist * (innerWidth > 860 ? 1 : 1.25), focus, 1700);
-    ring.position.set(m.id === 'santpau' ? 0.02 : 0, m.id === 'arc' || m.id === 'santpau' || m.id === 'colon' || m.id === 'pedrera' ? 0.003 : 0.02, m.id === 'santpau' ? 0.2 : 0);
-    const halo = m.id === 'arc' ? m.worldH * 0.5 : m.id === 'santpau' ? m.worldH * 0.28 : (m.worldSpan || 0.2);
-    ring.scale.setScalar(Math.max(0.05, halo * 0.62));
-    m.obj.add(ring);
-    ring.visible = true;
+    const span = m.worldSpan || h;
+    const view = n.clone().multiplyScalar(0.46).add(front.multiplyScalar(0.84)).add(east.multiplyScalar(0.2)).normalize();
+    const focus = n.clone().multiplyScalar(m.base + h * 0.42);
+    const tan = Math.tan((camera.fov * Math.PI) / 360);
+    const dist = Math.max(span * 0.62, Math.max(h, span / camera.aspect) / tan * 0.64);
+    rig.flyTo(view, dist * (innerWidth > 860 ? 1 : 1.3), focus, 1700);
+    ring.visible = false;
   }
 
   function followTram(index) {
@@ -233,8 +212,8 @@ export async function createScene(canvas, hooks) {
     ring.visible = false;
     const n = tram.rig.position.clone().normalize();
     const side = tram.rig.userData.east || new THREE.Vector3(1, 0, 0);
-    const view = n.clone().multiplyScalar(0.75).add(side.clone().multiplyScalar(0.45)).normalize();
-    rig.flyTo(view, innerWidth > 860 ? 4.2 : 6, tram.rig.position.clone(), 1400);
+    const view = n.clone().multiplyScalar(0.7).add(side.clone().multiplyScalar(0.62)).normalize();
+    rig.flyTo(view, innerWidth > 860 ? 0.95 : 1.4, tram.rig.position.clone(), 1400);
     return tram.ref;
   }
 
@@ -267,7 +246,7 @@ export async function createScene(canvas, hooks) {
     sun.target.position.set(0, 0, 0);
     rim.position.copy(sun.position).multiplyScalar(-0.4).add(new THREE.Vector3(0, 20, 0));
     rig.step(dt || 0.016);
-      if (composer) {
+    if (composer) {
       const focus = bokeh && (bokeh.uniforms || bokeh.materialBokeh?.uniforms);
       if (focus && focus.focus) focus.focus.value = camera.position.distanceTo(rig.state.target);
       composer.render();

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CITY } from '../data/city.js';
-import { R, unprojectDir, placeOn, RELIEF, OLAT, OLNG } from './geo.js';
+import { R, unprojectDir, placeOn, RELIEF, OLAT, OLNG, DEG_PER_M } from './geo.js';
 import { mat } from './kit.js';
 import { buildDistricts } from './districts.js';
 import { buildQuarters } from './quarters.js';
@@ -100,6 +101,8 @@ export function sampleGround(lat, lng) {
   // Only a strip of water along the coast. The open sea does not fill the globe.
   let sea = cross < 0 && coastM < 680;
   if (inRings(lng, lat, CITY.port)) sea = true;
+  // The port polygon folds back over the beach. Keep the landward shore dry.
+  if (sea && cross >= 0 && coastM < 160) sea = false;
   const beach = !sea && coastM < 120 && lng > 2.183 && lat > 41.368 && lat < 41.41;
   const park = !sea && (
     inRings(lng, lat, CITY.parks.ciutadella)
@@ -130,6 +133,22 @@ export function groundRadius(lat, lng) {
   return sampleGround(lat, lng).radius;
 }
 
+/** True when the point and a small ring around it are out of the sea. */
+export function onLand(lat, lng, margin = 40) {
+  const dLat = margin / M_LAT;
+  const dLng = margin / M_LNG;
+  for (const [la, ln] of [
+    [lat, lng],
+    [lat + dLat, lng],
+    [lat - dLat, lng],
+    [lat, lng + dLng],
+    [lat, lng - dLng],
+  ]) {
+    if (sampleGround(la, ln).sea) return false;
+  }
+  return true;
+}
+
 const PAL = {
   sea: new THREE.Color('#3e8f9c'),
   beach: new THREE.Color('#e7d3a2'),
@@ -146,27 +165,106 @@ function hash(i) {
   return (h >>> 0) / 4294967296;
 }
 
-/** The planet: sea, beach, Eixample plain, Montjuïc and Collserola. */
+function edgeKey(a, b) {
+  return a < b ? `${a},${b}` : `${b},${a}`;
+}
+
+/** Split a triangle on the edges present in `mark`, keeping the outward winding. */
+function splitTri([a, b, c], mark, mid) {
+  const ab = mark.has(edgeKey(a, b)) ? mid(a, b) : -1;
+  const bc = mark.has(edgeKey(b, c)) ? mid(b, c) : -1;
+  const ca = mark.has(edgeKey(c, a)) ? mid(c, a) : -1;
+  const n = (ab >= 0) + (bc >= 0) + (ca >= 0);
+  if (n === 0) return [[a, b, c]];
+  if (n === 3) return [[a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]];
+  if (n === 1) {
+    if (ab >= 0) return [[a, ab, c], [ab, b, c]];
+    if (bc >= 0) return [[a, b, bc], [a, bc, c]];
+    return [[a, b, ca], [b, c, ca]];
+  }
+  if (ab < 0) return [[c, ca, bc], [ca, a, bc], [a, b, bc]];
+  if (bc < 0) return [[a, ab, ca], [ab, b, ca], [b, c, ca]];
+  return [[b, bc, ab], [bc, c, ab], [c, a, ab]];
+}
+
+/**
+ * The planet, coarse inland and fine along the OSM coast.
+ * A triangle is one colour, so a 700 m face was painting the port over the quays.
+ */
 export function buildPlanet(world) {
-  const src = new THREE.IcosahedronGeometry(1, 6).toNonIndexed();
-  const pos = src.attributes.position;
-  const col = new Float32Array(pos.count * 3);
-  const v = new THREE.Vector3();
+  const base = mergeVertices(new THREE.IcosahedronGeometry(1, 6).toNonIndexed());
+  const basePos = base.attributes.position;
+  const baseIdx = base.index.array;
+  const verts = [];
+  const cache = [];
+  for (let i = 0; i < basePos.count; i++) {
+    verts.push(new THREE.Vector3().fromBufferAttribute(basePos, i).normalize());
+    cache.push(null);
+  }
+  let tris = [];
+  for (let i = 0; i < baseIdx.length; i += 3) tris.push([baseIdx[i], baseIdx[i + 1], baseIdx[i + 2]]);
+  const infoAt = (i) => {
+    if (!cache[i]) {
+      const g = unprojectDir(verts[i]);
+      cache[i] = sampleGround(g.lat, g.lng);
+    }
+    return cache[i];
+  };
+  // About 22 m. Streets and blocks then sit on the same side of the shore as the mesh.
+  const target = 22 * DEG_PER_M * (Math.PI / 180);
+  for (let pass = 0; pass < 6 && tris.length < 140000; pass++) {
+    const mark = new Set();
+    let any = false;
+    for (const [a, b, c] of tris) {
+      const ang = Math.max(verts[a].angleTo(verts[b]), verts[b].angleTo(verts[c]), verts[c].angleTo(verts[a]));
+      if (ang <= target) continue;
+      const ia = infoAt(a);
+      const ib = infoAt(b);
+      const ic = infoAt(c);
+      const mixed = ia.sea !== ib.sea || ib.sea !== ic.sea;
+      const coastal = Math.min(ia.coastM, ib.coastM, ic.coastM) < 260;
+      if (!mixed && !coastal) continue;
+      any = true;
+      mark.add(edgeKey(a, b));
+      mark.add(edgeKey(b, c));
+      mark.add(edgeKey(c, a));
+    }
+    if (!any) break;
+    const mids = new Map();
+    const mid = (a, b) => {
+      const k = edgeKey(a, b);
+      if (mids.has(k)) return mids.get(k);
+      const id = verts.length;
+      verts.push(verts[a].clone().add(verts[b]).normalize());
+      cache.push(null);
+      mids.set(k, id);
+      return id;
+    };
+    const next = [];
+    for (const tri of tris) next.push(...splitTri(tri, mark, mid));
+    tris = next;
+  }
+  base.dispose();
+
+  const positions = new Float32Array(tris.length * 9);
+  const colors = new Float32Array(tris.length * 9);
   const c = new THREE.Color();
-  for (let i = 0; i < pos.count; i += 3) {
-    const acc = new THREE.Vector3();
-    for (let k = 0; k < 3; k++) acc.add(v.fromBufferAttribute(pos, i + k).normalize());
-    acc.normalize();
-    const geo = unprojectDir(acc);
-    const info = sampleGround(geo.lat, geo.lng);
-    c.copy(PAL[info.kind]).offsetHSL(0, 0, (hash(i) - 0.5) * 0.03);
-    for (let k = 0; k < 3; k++) {
-      v.fromBufferAttribute(pos, i + k).normalize().multiplyScalar(info.radius);
-      pos.setXYZ(i + k, v.x, v.y, v.z);
-      c.toArray(col, (i + k) * 3);
+  let o = 0;
+  for (const tri of tris) {
+    for (const id of tri) {
+      const info = infoAt(id);
+      const p = verts[id].clone().multiplyScalar(info.radius);
+      positions[o] = p.x;
+      positions[o + 1] = p.y;
+      positions[o + 2] = p.z;
+      c.copy(PAL[info.kind]).offsetHSL(0, 0, (hash(id) - 0.5) * 0.03);
+      c.toArray(colors, o);
+      o += 3;
     }
   }
-  src.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const src = new THREE.BufferGeometry();
+  src.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  src.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   src.computeVertexNormals();
   const land = new THREE.Mesh(src, new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.96, metalness: 0, flatShading: true,
