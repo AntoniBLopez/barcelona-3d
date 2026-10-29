@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import { CITY } from '../data/city.js';
-import { MONUMENTS } from './monuments.js';
-import { SIZE, GAUDI_AVE } from './fit.js';
-import { R, project, unprojectDir, dirLL, placeOn, U_PER_M } from './geo.js';
+import { R, unprojectDir, placeOn } from './geo.js';
 import { mat } from './kit.js';
 
 const M_LAT = 111320;
@@ -182,124 +180,6 @@ export function buildPlanet(world) {
   return { land, water };
 }
 
-function nearPoly(lat, lng, line, limit) {
-  if (!line) return false;
-  const x = lng * M_LNG;
-  const y = lat * M_LAT;
-  for (let i = 0; i < line.length - 1; i++) {
-    const ax = line[i][0] * M_LNG;
-    const ay = line[i][1] * M_LAT;
-    const bx = line[i + 1][0] * M_LNG;
-    const by = line[i + 1][1] * M_LAT;
-    const dx = bx - ax;
-    const dy = by - ay;
-    const l2 = dx * dx + dy * dy || 1;
-    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
-    if (Math.hypot(x - ax - dx * t, y - ay - dy * t) < limit) return true;
-  }
-  return false;
-}
-
-/** Chamfered Cerdà blocks with a street and a sidewalk between them. */
-export function buildEixample(world) {
-  const axis = CITY.axes.granvia;
-  const a = axis[0];
-  const b = axis[axis.length - 1];
-  const ang = Math.atan2((b[0] - a[0]) * M_LNG, (b[1] - a[1]) * M_LAT);
-  const cos = Math.cos(ang);
-  const sin = Math.sin(ang);
-  const shape = new THREE.Shape();
-  const c = 0.15;
-  const pts = [[-0.5 + c, -0.5], [0.5 - c, -0.5], [0.5, -0.5 + c], [0.5, 0.5 - c], [0.5 - c, 0.5], [-0.5 + c, 0.5], [-0.5, 0.5 - c], [-0.5, -0.5 + c]];
-  shape.moveTo(pts[0][0], pts[0][1]);
-  pts.slice(1).forEach(([x, y]) => shape.lineTo(x, y));
-  shape.closePath();
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 1 });
-  geo.rotateX(-Math.PI / 2);
-  geo.computeVertexNormals();
-  const colors = ['#e7d7c0', '#d9c3a4', '#f1e6d4', '#c9b294', '#efe4d2'];
-  const meshes = colors.map((color) => {
-    const mesh = new THREE.InstancedMesh(geo, mat(color), 900);
-    mesh.count = 0;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    world.add(mesh);
-    return mesh;
-  });
-  const walk = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#8a8174'), 2200);
-  const road = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#3c424c'), 2200);
-  walk.count = 0;
-  road.count = 0;
-  world.add(walk, road);
-  const step = 133;
-  const block = 108 * U_PER_M;
-  const dummy = new THREE.Object3D();
-  const avenues = [CITY.axes.granvia, CITY.axes.diagonal, CITY.axes.gracia, CITY.axes.rambla];
-  const cell = (east, north) => {
-    const dx = east * cos + north * sin;
-    const dy = -east * sin + north * cos;
-    return { lat: 41.391 + dy / M_LAT, lng: 2.165 + dx / M_LNG };
-  };
-  const inside = (lat, lng) => lat >= 41.374 && lat <= 41.406 && lng >= 2.144 && lng <= 2.186
-    && !(lat < 41.383 && lng > 2.16 && lng < 2.182);
-  const arc = MONUMENTS.find((m) => m.id === 'arc');
-  const arcKeep = (SIZE.arc?.[0] || 200) / 2 + 70;
-  let n = 0;
-  for (let ix = -16; ix <= 16; ix++) {
-    for (let iy = -14; iy <= 14; iy++) {
-      const { lat, lng } = cell(ix * step, iy * step);
-      if (!inside(lat, lng)) continue;
-      const gnd = sampleGround(lat, lng);
-      if (gnd.sea || gnd.park || gnd.beach) continue;
-      const byArch = Math.hypot((lat - arc.lat) * M_LAT, (lng - arc.lng) * M_LNG) < arcKeep;
-      if (!byArch) pave(dummy, walk, road, cell, ix, iy, step, ang);
-      if (blocked(lat, lng, avenues)) continue;
-      const h = (16 + (Math.abs(ix * 7 + iy * 3) % 5) * 3) * U_PER_M;
-      placeOn(dummy, lat, lng, gnd.radius, ang);
-      dummy.scale.set(block, h, block);
-      dummy.updateMatrix();
-      const mesh = meshes[Math.abs(ix + iy * 3) % meshes.length];
-      mesh.setMatrixAt(mesh.count++, dummy.matrix);
-      n++;
-    }
-  }
-  meshes.forEach((m) => { m.instanceMatrix.needsUpdate = true; });
-  walk.instanceMatrix.needsUpdate = true;
-  road.instanceMatrix.needsUpdate = true;
-  return n;
-}
-
-function blocked(lat, lng, avenues) {
-  for (const m of MONUMENTS) {
-    const span = (SIZE[m.id]?.[0] || 30) / 2 + 14;
-    if (Math.hypot((lat - m.lat) * M_LAT, (lng - m.lng) * M_LNG) < span) return true;
-  }
-  for (const line of avenues) if (nearPoly(lat, lng, line, 78)) return true;
-  if (nearPoly(lat, lng, GAUDI_AVE, 36)) return true;
-  for (const line of CITY.tram.tracks) if (nearPoly(lat, lng, line, 16)) return true;
-  return false;
-}
-
-function pave(dummy, walk, road, cell, ix, iy, step, ang) {
-  const segs = [
-    [ix * step, iy * step - step / 2, step, 22],
-    [ix * step + step / 2, iy * step, 22, step],
-  ];
-  for (const [east, north, len, wid] of segs) {
-    const { lat, lng } = cell(east, north);
-    const gnd = sampleGround(lat, lng);
-    if (gnd.sea || gnd.park || !lat) continue;
-    placeOn(dummy, lat, lng, gnd.radius + 0.012, ang);
-    dummy.scale.set(len * U_PER_M, 0.012, wid * U_PER_M);
-    dummy.updateMatrix();
-    walk.setMatrixAt(walk.count++, dummy.matrix);
-    dummy.scale.set((len - 2) * U_PER_M, 0.02, (wid - 6) * U_PER_M);
-    dummy.position.addScaledVector(dummy.userData.normal, 0.008);
-    dummy.updateMatrix();
-    road.setMatrixAt(road.count++, dummy.matrix);
-  }
-}
-
 const _treeDummy = new THREE.Object3D();
 
 function scatter(world, rings, count, tint) {
@@ -339,3 +219,5 @@ export function buildTrees(world) {
   scatter(world, CITY.parks.montjuic, 70, '#5d8a40');
   scatter(world, CITY.parks.guell, 36, '#6a9a48');
 }
+
+export { buildEixample } from './eixample.js';

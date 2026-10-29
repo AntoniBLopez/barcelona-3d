@@ -49,9 +49,6 @@ export function ribbon(points, widthM, lift, color, opts = {}) {
 export function buildStreets(world) {
   const group = new THREE.Group();
   const specs = [
-    [CITY.axes.granvia, 38, '#4c5158'],
-    [CITY.axes.diagonal, 42, '#454a50'],
-    [CITY.axes.gracia, 32, '#5a5348'],
     [CITY.axes.rambla, 28, '#c4b08a'],
     [CITY.axes.poblenou, 24, '#c4b08a'],
   ];
@@ -77,6 +74,8 @@ export function buildTramTracks(world) {
   const group = new THREE.Group();
   group.name = 'tram-tracks';
   for (const line of CITY.tram.tracks) {
+    const mid = line[Math.floor(line.length / 2)];
+    if (onDiagonal(mid[1], mid[0])) continue;
     const mesh = ribbon(line, 7, 0.055, CITY.tram.color, { roughness: 0.7 });
     if (mesh) group.add(mesh);
   }
@@ -86,11 +85,11 @@ export function buildTramTracks(world) {
 
 function makeTram() {
   const g = new THREE.Group();
-  add(g, box(0.16, 0.09, 0.4), mat('#f7f8f6'), 0, 0.1, 0);
-  add(g, box(0.15, 0.05, 0.28), WIN, 0, 0.13, 0);
-  add(g, box(0.17, 0.02, 0.4), mat('#0c7d68'), 0, 0.055, 0);
-  add(g, cyl(0.012, 0.012, 0.07, 4), mat('#2a2e33'), 0, 0.18, -0.05);
-  g.scale.setScalar(0.62);
+  const s = U_PER_M;
+  add(g, box(4.2 * s, 3.4 * s, 40 * s), mat('#f4f6f4'), 0, 2.4 * s, 0);
+  add(g, box(3.8 * s, 1.3 * s, 30 * s), WIN, 0, 3.1 * s, 0);
+  add(g, box(4.4 * s, 0.8 * s, 40 * s), mat('#0c7d68'), 0, 0.7 * s, 0);
+  add(g, box(0.25 * s, 0.8 * s, 0.25 * s), mat('#2a2e33'), 0, 4.2 * s, -5 * s);
   return g;
 }
 
@@ -105,9 +104,78 @@ function pathFrames(points) {
   return frames;
 }
 
+const M_LAT = 111320;
+const M_LNG = 111320 * Math.cos((41.3905 * Math.PI) / 180);
+
+function onDiagonal(lat, lng) {
+  const x = lng * M_LNG;
+  const y = lat * M_LAT;
+  const line = CITY.axes.diagonal;
+  for (let i = 0; i < line.length - 1; i++) {
+    const ax = line[i][0] * M_LNG;
+    const ay = line[i][1] * M_LAT;
+    const bx = line[i + 1][0] * M_LNG;
+    const by = line[i + 1][1] * M_LAT;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
+    if (Math.hypot(x - ax - dx * t, y - ay - dy * t) < 28) return true;
+  }
+  return false;
+}
+
+function shiftLine(line, meters) {
+  return line.map((p, i) => {
+    const a = line[Math.max(0, i - 1)];
+    const b = line[Math.min(line.length - 1, i + 1)];
+    const dx = (b[0] - a[0]) * M_LNG;
+    const dy = (b[1] - a[1]) * M_LAT;
+    const len = Math.hypot(dx, dy) || 1;
+    return [p[0] + (-dy / len) * meters / M_LNG, p[1] + (dx / len) * meters / M_LAT];
+  });
+}
+
+function resample(line, step) {
+  const out = [line[0]];
+  let carry = step;
+  for (let i = 1; i < line.length; i++) {
+    const dx = (line[i][0] - line[i - 1][0]) * M_LNG;
+    const dy = (line[i][1] - line[i - 1][1]) * M_LAT;
+    const len = Math.hypot(dx, dy) || 1;
+    let dist = carry;
+    while (dist <= len) {
+      const t = dist / len;
+      out.push([
+        line[i - 1][0] + (line[i][0] - line[i - 1][0]) * t,
+        line[i - 1][1] + (line[i][1] - line[i - 1][1]) * t,
+      ]);
+      dist += step;
+    }
+    carry = dist - len;
+  }
+  out.push(line[line.length - 1]);
+  return out;
+}
+
 export function buildTrams(world) {
+  const forward = resample(CITY.axes.diagonal, 80);
+  const back = forward.slice().reverse();
+  const plan = [
+    ['T1', shiftLine(forward, -2), 0.04],
+    ['T1', shiftLine(forward, -2), 0.28],
+    ['T1', shiftLine(forward, -2), 0.55],
+    ['T1', shiftLine(forward, -2), 0.82],
+    ['T2', shiftLine(back, 2), 0.16],
+    ['T2', shiftLine(back, 2), 0.46],
+    ['T2', shiftLine(back, 2), 0.73],
+    ['T4', shiftLine(forward, 2), 0.1],
+    ['T4', shiftLine(forward, 2), 0.37],
+    ['T4', shiftLine(forward, 2), 0.64],
+    ['T4', shiftLine(forward, 2), 0.9],
+  ];
   const trams = [];
-  CITY.tram.routes.forEach((route, index) => {
+  plan.forEach(([ref, path, t], index) => {
     const rig = makeTram();
     rig.userData.kind = 'tram';
     rig.userData.tram = index;
@@ -118,7 +186,7 @@ export function buildTrams(world) {
       }
     });
     world.add(rig);
-    trams.push({ rig, frames: pathFrames(route.path), ref: route.ref, t: index * 0.31 });
+    trams.push({ rig, frames: pathFrames(path), ref, t });
   });
   return trams;
 }
@@ -137,7 +205,7 @@ export function stepTrams(trams, dt) {
     const b = frames[Math.min(frames.length - 1, i + 1)];
     const lat = a.lat + (b.lat - a.lat) * k;
     const lng = a.lng + (b.lng - a.lng) * k;
-    placeOn(tram.rig, lat, lng, groundRadius(lat, lng) + 0.07, 0);
+    placeOn(tram.rig, lat, lng, groundRadius(lat, lng) + 0.09, 0);
     const ahead = dirLL(project(b.lat, b.lng).lat, project(b.lat, b.lng).lon);
     const dir = ahead.sub(tram.rig.userData.normal.clone().multiplyScalar(ahead.dot(tram.rig.userData.normal)));
     const yaw = Math.atan2(dir.dot(tram.rig.userData.east), dir.dot(tram.rig.userData.south));
