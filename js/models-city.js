@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { add, box, cyl, cone, mat, mosaic, MOSAIC, WIN, TRENCA } from './kit.js';
 import { campnou } from './models-campnou.js';
 import { arc } from './models-arc.js';
+import { santpau } from './models-santpau.js';
 
 const stone = () => mat('#e4d5bc');
 const brick = () => mat('#b5644a');
@@ -104,25 +105,6 @@ export function estadi() {
   add(g, new THREE.CylinderGeometry(0.7, 0.72, 0.08, 18), mat('#3d8f4a'), 0, 0.12, 0);
   add(g, box(0.45, 0.35, 0.2), mat('#d7c4a0'), 0, 0.45, 0.78);
   add(g, box(1.5, 0.06, 0.08), mat('#f2f2f2'), 0, 0.42, 0);
-  return g;
-}
-
-export function santpau() {
-  const g = new THREE.Group();
-  const br = mat('#c46a45');
-  // Administration building and a handful of pavilions with tiled domes.
-  add(g, box(0.9, 0.7, 0.45), br, 0, 0.4, 0.55);
-  add(g, cyl(0.2, 0.22, 0.7, 8), br, 0, 0.7, 0.55);
-  add(g, new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), MOSAIC, 0, 1.15, 0.55).geometry = mosaic(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), TRENCA);
-  const dome = g.children[g.children.length - 1];
-  dome.material = MOSAIC;
-  for (const [x, z] of [[-0.7, -0.15], [0.7, -0.15], [-0.35, -0.55], [0.35, -0.55]]) {
-    add(g, box(0.38, 0.4, 0.32), br, x, 0.24, z);
-    const d = new THREE.Mesh(mosaic(new THREE.SphereGeometry(0.18, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), TRENCA), MOSAIC);
-    d.position.set(x, 0.48, z);
-    d.castShadow = true;
-    g.add(d);
-  }
   return g;
 }
 

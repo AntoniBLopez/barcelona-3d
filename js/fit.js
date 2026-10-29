@@ -23,7 +23,7 @@ export const SIZE = {
   portvell: [54, 18],
   barceloneta: [36, 5],
   glories: [34, 144],
-  santpau: [80, 34],
+  santpau: [300, 62],
   musica: [34, 30],
   ciutadella: [64, 16],
   boqueria: [32, 15],
@@ -39,7 +39,10 @@ export const SIZE = {
 
 /** Local +Z is south, so the sail's face looks out over the port. */
 /** Casa Batlló's facade looks northeast, onto Passeig de Gràcia. */
-export const YAW = { batllo: 2.32, arc: 0.82 };
+export const YAW = { batllo: 2.32, arc: 0.82, santpau: -0.08 };
+
+/** [lng, lat] of Avinguda de Gaudí, from the Sagrada Família to Sant Pau. */
+export const GAUDI_AVE = [[2.17455, 41.40435], [2.17542, 41.41315]];
 
 const box = new THREE.Box3();
 const size = new THREE.Vector3();

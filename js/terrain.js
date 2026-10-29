@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CITY } from '../data/city.js';
 import { MONUMENTS } from './monuments.js';
-import { SIZE } from './fit.js';
+import { SIZE, GAUDI_AVE } from './fit.js';
 import { R, project, unprojectDir, dirLL, placeOn, U_PER_M } from './geo.js';
 import { mat } from './kit.js';
 
@@ -275,6 +275,7 @@ function blocked(lat, lng, avenues) {
     if (Math.hypot((lat - m.lat) * M_LAT, (lng - m.lng) * M_LNG) < span) return true;
   }
   for (const line of avenues) if (nearPoly(lat, lng, line, 78)) return true;
+  if (nearPoly(lat, lng, GAUDI_AVE, 36)) return true;
   for (const line of CITY.tram.tracks) if (nearPoly(lat, lng, line, 16)) return true;
   return false;
 }

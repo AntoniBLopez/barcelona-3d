@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CITY } from '../data/city.js';
 import { project, dirLL, placeOn, U_PER_M } from './geo.js';
+import { GAUDI_AVE } from './fit.js';
 import { groundRadius } from './terrain.js';
 import { add, box, cyl, mat, WIN } from './kit.js';
 
@@ -58,6 +59,10 @@ export function buildStreets(world) {
     const mesh = ribbon(line, width, 0.035, color);
     if (mesh) group.add(mesh);
   }
+  const avenue = ribbon(GAUDI_AVE, 34, 0.05, '#e6dcc8');
+  const median = ribbon(GAUDI_AVE, 10, 0.062, '#5e8f46');
+  if (avenue) group.add(avenue);
+  if (median) group.add(median);
   for (const line of [CITY.rivers.besos, CITY.rivers.llobregat]) {
     const mesh = ribbon(line, 90, 0.02, '#3d86a8', { roughness: 0.35, metalness: 0.05 });
     if (mesh) group.add(mesh);
