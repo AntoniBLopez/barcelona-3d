@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CITY } from '../data/city.js';
-import { project, dirLL, placeOn, U_PER_M, RELIEF } from './geo.js';
+import { project, dirLL, placeOn, yawToward, U_PER_M, RELIEF } from './geo.js';
 import { GAUDI_AVE } from './fit.js';
 import { groundRadius, onLand } from './terrain.js';
 import { add, box, cyl, mat, WIN } from './kit.js';
@@ -268,10 +268,7 @@ export function stepTrams(trams, dt) {
     const lat = a.lat + (b.lat - a.lat) * k;
     const lng = a.lng + (b.lng - a.lng) * k;
     placeOn(tram.rig, lat, lng, groundRadius(lat, lng) + 0.09, 0);
-    const ahead = dirLL(project(b.lat, b.lng).lat, project(b.lat, b.lng).lon);
-    const dir = ahead.sub(tram.rig.userData.normal.clone().multiplyScalar(ahead.dot(tram.rig.userData.normal)));
-    const yaw = Math.atan2(dir.dot(tram.rig.userData.east), dir.dot(tram.rig.userData.south));
-    tram.rig.rotateY(yaw);
+    tram.rig.rotateY(yawToward(tram.rig, b.lat, b.lng));
     tram.rig.userData.lat = lat;
     tram.rig.userData.lng = lng;
   }
@@ -342,7 +339,5 @@ export function stepShip(ship, t) {
   const lat = a[1] + (b[1] - a[1]) * k;
   const lng = a[0] + (b[0] - a[0]) * k;
   placeOn(ship, lat, lng, groundRadius(lat, lng) + 0.1, 0);
-  const ahead = dirLL(project(b[1], b[0]).lat, project(b[1], b[0]).lon);
-  const dir = ahead.sub(ship.userData.normal.clone().multiplyScalar(ahead.dot(ship.userData.normal)));
-  ship.rotateY(Math.atan2(dir.dot(ship.userData.east), dir.dot(ship.userData.south)));
+  ship.rotateY(yawToward(ship, b[1], b[0]));
 }

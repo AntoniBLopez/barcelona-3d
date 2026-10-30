@@ -22,6 +22,8 @@ let metroOn = false;
 
 const labels = new Map();
 const stationLabels = new Map();
+const monumentById = new Map(MONUMENTS.map((m) => [m.id, m]));
+const stationById = new Map(CITY.metro.stations.map((s) => [s.id, s]));
 
 export function mount(api) {
   sceneApi = api;
@@ -91,6 +93,7 @@ export function renderTexts() {
   for (const m of MONUMENTS) {
     const name = text(m, lang, 'name');
     const b = labels.get(m.id);
+    b._cls = '';
     b.innerHTML = `<span class="num">${String(m.n).padStart(2, '0')}</span>${name}<em>${text(m, lang, 'sub')}</em>`;
     b.style.setProperty('--c', catColor(m.cat));
     m.li.innerHTML = `<span class="num" style="--c:${catColor(m.cat)}">${String(m.n).padStart(2, '0')}</span><span><div>${name}</div><div class="meta">${text(m, lang, 'style')}</div></span>`;
@@ -297,20 +300,30 @@ export function onFrame(payload) {
   for (const item of payload.monuments) {
     const el = labels.get(item.id);
     if (!el) continue;
-    const mon = MONUMENTS.find((m) => m.id === item.id);
+    const mon = monumentById.get(item.id);
     const show = item.visible && !(gaudiOnly && !mon.gaudi);
-    el.style.transform = `translate(${item.x}px, ${item.y}px) translate(-50%, -120%)`;
     const pin = current && current.id === item.id;
     const near = 480 / (item.depth || 24);
-    rows.push({ el, show, pin, rank: (pin ? 1000 : 0) + (item.major ? 70 : 0) + near });
+    rows.push({ el, show, pin, x: item.x, y: item.y, rank: (pin ? 1000 : 0) + (item.major ? 70 : 0) + near });
   }
   declutter(rows);
+  for (const r of rows) {
+    const key = `${r.x.toFixed(1)},${r.y.toFixed(1)}`;
+    if (r.el._at === key) continue;
+    r.el._at = key;
+    r.el.style.transform = `translate(${r.x}px, ${r.y}px) translate(-50%, -120%)`;
+  }
   for (const s of payload.stations) {
     const el = stationLabels.get(s.id);
     if (!el) continue;
-    el.classList.toggle('hidden', !s.visible);
-    el.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -130%)`;
-    el.querySelector('span:last-child').textContent = (lang === 'en' ? CITY.metro.stations.find((x) => x.id === s.id).en : CITY.metro.stations.find((x) => x.id === s.id).es);
+    if (el._hid !== !s.visible) { el._hid = !s.visible; el.classList.toggle('hidden', !s.visible); }
+    const key = `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+    if (el._at !== key) { el._at = key; el.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -130%)`; }
+    if (el._lang !== lang) {
+      el._lang = lang;
+      const st = stationById.get(s.id);
+      el.querySelector('span:last-child').textContent = lang === 'en' ? st.en : st.es;
+    }
   }
 }
 
