@@ -42,14 +42,20 @@ export function createCamera(camera, canvas) {
     }
   }
 
+  const spinDir = new THREE.Vector3();
+  const spinUp = new THREE.Vector3();
+  const spinRight = new THREE.Vector3();
+  const spinQ = new THREE.Quaternion();
+  const spinQ2 = new THREE.Quaternion();
+  const liftN = new THREE.Vector3();
+
   function rotateFree(ax, ay) {
-    const dir = camera.position.clone().normalize();
-    const up = camera.up.clone().addScaledVector(dir, -camera.up.dot(dir)).normalize();
-    const right = new THREE.Vector3().crossVectors(up, dir).normalize();
-    const q = new THREE.Quaternion().setFromAxisAngle(up, -ax)
-      .multiply(new THREE.Quaternion().setFromAxisAngle(right, ay));
-    camera.position.applyQuaternion(q);
-    camera.up.copy(up.applyQuaternion(q));
+    spinDir.copy(camera.position).normalize();
+    spinUp.copy(camera.up).addScaledVector(spinDir, -camera.up.dot(spinDir)).normalize();
+    spinRight.crossVectors(spinUp, spinDir).normalize();
+    spinQ.setFromAxisAngle(spinUp, -ax).multiply(spinQ2.setFromAxisAngle(spinRight, ay));
+    camera.position.applyQuaternion(spinQ);
+    camera.up.copy(spinUp.applyQuaternion(spinQ));
     camera.lookAt(state.target);
   }
 
@@ -118,7 +124,7 @@ export function createCamera(camera, canvas) {
       const e = t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
       camera.position.lerpVectors(f.fromPos, f.toPos, e);
       const lift = Math.sin(Math.PI * e) * 1.6;
-      if (f.toTarget.lengthSq() > 1) camera.position.addScaledVector(f.toTarget.clone().normalize(), lift);
+      if (f.toTarget.lengthSq() > 1) camera.position.addScaledVector(liftN.copy(f.toTarget).normalize(), lift);
       state.target.lerpVectors(f.fromTarget, f.toTarget, e);
       camera.up.copy(f.fromUp).lerp(f.toUp, e).normalize();
       camera.lookAt(state.target);

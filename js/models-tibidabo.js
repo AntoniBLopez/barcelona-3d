@@ -33,11 +33,13 @@ export function tibidabo() {
   add(g, box(18, 1.2, 0.4), mat('#f0d2a0', { emissive: '#f0d2a0', emissiveIntensity: 1.4 }), 0, 4, 15.4);
 
   const wheel = ferris();
+  wheel.userData.noBatch = true;
   wheel.position.set(52, 14, 6);
   g.add(wheel);
   add(g, cyl(0.7, 0.9, 14, 6), mat('#9aa3ad'), 52, 7, 6);
 
   const avio = plane();
+  avio.userData.noBatch = true;
   avio.position.set(68, 9, -8);
   g.add(avio);
   add(g, cyl(0.45, 0.55, 9, 6), mat('#dfe3e8'), 68, 4.5, -8);
@@ -54,6 +56,7 @@ export function tibidabo() {
   // Tramvia Blau heading down toward the city.
   for (let i = 0; i < 7; i++) add(g, box(1.4, 0.25, 7), mat('#6d6454'), 8, 0.15, 32 + i * 8);
   const tram = add(g, box(3.4, 2.4, 6), mat('#1d4e89', { emissive: '#8eb6e0', emissiveIntensity: 1.1 }), 8, 1.5, 40);
+  tram.userData.noBatch = true;
 
   g.userData.animate = (t) => {
     wheel.rotation.z = t * 0.4;

@@ -43,11 +43,28 @@ export function unprojectDir(n) {
   };
 }
 
-/** Unit vector for a maquette latitude/longitude (degrees). */
-export function dirLL(lat, lon) {
+const _n = new THREE.Vector3();
+const _e = new THREE.Vector3();
+const _s = new THREE.Vector3();
+const _basis = new THREE.Matrix4();
+const _aim = new THREE.Vector3();
+
+function dirInto(lat, lon, out) {
   const p = lat * D2R;
   const l = lon * D2R;
-  return new THREE.Vector3(Math.cos(p) * Math.sin(l), Math.sin(p), Math.cos(p) * Math.cos(l));
+  return out.set(Math.cos(p) * Math.sin(l), Math.sin(p), Math.cos(p) * Math.cos(l));
+}
+
+/** Unit vector for a maquette latitude/longitude (degrees). */
+export function dirLL(lat, lon) {
+  return dirInto(lat, lon, new THREE.Vector3());
+}
+
+/** Yaw that points +Z toward a lat/lng. Call after placeOn so east/south exist. */
+export function yawToward(obj, geoLat, geoLng) {
+  dirInto((geoLat - OLAT) * M_LAT * DEG_PER_M, (geoLng - OLNG) * M_LNG * DEG_PER_M, _aim);
+  _aim.addScaledVector(obj.userData.normal, -_aim.dot(obj.userData.normal));
+  return Math.atan2(_aim.dot(obj.userData.east), _aim.dot(obj.userData.south));
 }
 
 /**
@@ -55,18 +72,24 @@ export function dirLL(lat, lon) {
  * local +X points east. `yaw` turns the object around its own vertical.
  */
 export function placeOn(obj, geoLat, geoLng, radius, yaw = 0) {
-  const sph = project(geoLat, geoLng);
-  const n = dirLL(sph.lat, sph.lon);
-  const lon = sph.lon * D2R;
-  const east = new THREE.Vector3(Math.cos(lon), 0, -Math.sin(lon));
-  east.addScaledVector(n, -east.dot(n)).normalize();
-  const south = new THREE.Vector3().crossVectors(east, n).normalize();
+  const lat = (geoLat - OLAT) * M_LAT * DEG_PER_M;
+  const lon = (geoLng - OLNG) * M_LNG * DEG_PER_M;
+  dirInto(lat, lon, _n);
+  _e.set(Math.cos(lon * D2R), 0, -Math.sin(lon * D2R));
+  _e.addScaledVector(_n, -_e.dot(_n)).normalize();
+  _s.crossVectors(_e, _n).normalize();
+  let n = obj.userData.normal;
+  if (!n) {
+    n = obj.userData.normal = new THREE.Vector3();
+    obj.userData.east = new THREE.Vector3();
+    obj.userData.south = new THREE.Vector3();
+  }
+  n.copy(_n);
+  obj.userData.east.copy(_e);
+  obj.userData.south.copy(_s);
   obj.position.copy(n).multiplyScalar(radius);
-  obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(east, n, south));
+  obj.quaternion.setFromRotationMatrix(_basis.makeBasis(obj.userData.east, n, obj.userData.south));
   if (yaw) obj.rotateY(yaw);
-  obj.userData.normal = n;
-  obj.userData.east = east;
-  obj.userData.south = south;
   return n;
 }
 

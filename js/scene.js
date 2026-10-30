@@ -1,8 +1,4 @@
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CITY } from '../data/city.js';
 import { MONUMENTS } from './monuments.js';
 import { GAUDI_BUILDERS } from './models-gaudi.js';
@@ -15,13 +11,15 @@ import { buildStreets, buildTramTracks, buildTrams, stepTrams, buildMetro, build
 import { createCamera } from './camera.js';
 import { placeOn, project, dirLL, U_PER_M } from './geo.js';
 import { setGlow } from './kit.js';
+import { batchStatic } from './batch.js';
+import { createPipeline } from './pass.js';
 
 const coarse = matchMedia('(pointer:coarse)').matches;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export async function createScene(canvas, hooks) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !coarse, alpha: true, premultipliedAlpha: false });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarse ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
   renderer.setSize(innerWidth, innerHeight);
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -29,6 +27,7 @@ export async function createScene(canvas, hooks) {
   renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = !coarse;
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.autoUpdate = false;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.15, 400);
@@ -106,7 +105,12 @@ export async function createScene(canvas, hooks) {
   twins.scale.setScalar(U_PER_M);
   placeOn(twins, 41.3874, 2.1968, groundRadius(41.3874, 2.1968), 0.55);
   world.add(twins);
-  trams.forEach((tram) => tram.rig.traverse((o) => { if (o.isMesh) pickables.push(o); }));
+  trams.forEach((tram) => {
+    tram.rig.userData.noBatch = true;
+    tram.rig.traverse((o) => { if (o.isMesh) pickables.push(o); });
+  });
+  ship.userData.noBatch = true;
+  batchStatic(world);
   hooks.progress(88);
   await tick();
 
@@ -116,31 +120,21 @@ export async function createScene(canvas, hooks) {
   });
 
   const rig = createCamera(camera, canvas);
-  let composer = null;
-  let bokeh = null;
   const useDof = !coarse && !reduced;
-  if (useDof) {
-    composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    bokeh = new BokehPass(scene, camera, { focus: 40, aperture: 0.00012, maxblur: 0.008 });
-    // Keep the CSS sky: the stock shader forces an opaque alpha.
-    bokeh.materialBokeh.fragmentShader = bokeh.materialBokeh.fragmentShader.replace(
-      'gl_FragColor.a = 1.0;',
-      'gl_FragColor.a = clamp(col.a / 41.0, 0.0, 1.0);',
-    );
-    bokeh.materialBokeh.needsUpdate = true;
-    composer.addPass(bokeh);
-    composer.addPass(new OutputPass());
-  }
+  const pipe = useDof ? createPipeline(renderer, scene, camera) : null;
+  const composer = pipe && pipe.composer;
+  const bokeh = pipe && pipe.bokeh;
+  const occluder = pipe && pipe.occluder;
 
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const aim = new THREE.Vector3();
-  const dir = new THREE.Vector3();
-  const occlude = [planet.land];
-  world.traverse((o) => {
-    if (o.isMesh && !o.isInstancedMesh && o !== planet.water && o !== planet.land && o !== ring) occlude.push(o);
-  });
+  const rimUp = new THREE.Vector3(0, 20, 0);
+  const camN = new THREE.Vector3();
+  const sphN = new THREE.Vector3();
+  const followQ = new THREE.Quaternion();
+  const followP = new THREE.Vector3();
+  const followN = new THREE.Vector3();
   let down = null;
   let nightK = 0;
   let nightTo = 0;
@@ -154,7 +148,7 @@ export async function createScene(canvas, hooks) {
 
   function resize() {
     renderer.setSize(innerWidth, innerHeight);
-    if (composer) composer.setSize(innerWidth, innerHeight);
+    if (pipe) pipe.setSize(innerWidth, innerHeight);
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     rig.limits();
@@ -234,30 +228,32 @@ export async function createScene(canvas, hooks) {
     frame.prev = now;
     clock = (now - t0) / 1000;
     nightK += Math.sign(nightTo - nightK) * Math.min(Math.abs(nightTo - nightK), dt / 1.6);
-    applyLook(nightK);
+    if (nightK !== frame.look) { applyLook(nightK); frame.look = nightK; }
     stepTrams(trams, dt);
     stepShip(ship, clock);
     for (const m of MONUMENTS) m.obj.userData.animate?.(clock, nightK);
     tower.userData.animate?.(clock, nightK);
     if (followIdx >= 0 && rig.state.focus && trams[followIdx]) {
       const f = rig.state.focus;
-      const p = trams[followIdx].rig.position.clone();
-      const n = p.clone().normalize();
-      const q = new THREE.Quaternion().setFromUnitVectors(f.n, n);
-      f.east.applyQuaternion(q);
-      f.south.applyQuaternion(q);
-      f.n.copy(n);
-      f.t.copy(p);
+      followP.copy(trams[followIdx].rig.position);
+      followN.copy(followP).normalize();
+      followQ.setFromUnitVectors(f.n, followN);
+      f.east.applyQuaternion(followQ);
+      f.south.applyQuaternion(followQ);
+      f.n.copy(followN);
+      f.t.copy(followP);
     }
-    // Keep the sun on the visible face.
+    // Keep the sun on the visible face. One shadow update for the whole frame.
     sun.position.copy(camera.position).normalize().multiplyScalar(40);
     sun.target.position.set(0, 0, 0);
-    rim.position.copy(sun.position).multiplyScalar(-0.4).add(new THREE.Vector3(0, 20, 0));
+    rim.position.copy(sun.position).multiplyScalar(-0.4).add(rimUp);
     rig.step(dt || 0.016);
+    if (renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate = true;
     if (composer) {
-      const focus = bokeh && (bokeh.uniforms || bokeh.materialBokeh?.uniforms);
+      const focus = bokeh.uniforms || bokeh.materialBokeh?.uniforms;
       if (focus && focus.focus) focus.focus.value = camera.position.distanceTo(rig.state.target);
       composer.render();
+      occluder.capture();
     } else renderer.render(scene, camera);
     hooks.frame(projectLabels());
   }
@@ -268,45 +264,34 @@ export async function createScene(canvas, hooks) {
     return aim.copy(n).multiplyScalar(m.base + lift);
   }
 
-  function labelOpen(m) {
-    const n = m.obj.userData.normal;
-    const anchor = labelAnchor(m);
-    if (n.dot(camera.position) - m.base < 0.45) return false;
-    dir.copy(anchor).sub(camera.position);
-    const reach = dir.length() || 1;
-    ray.set(camera.position, dir.multiplyScalar(1 / reach));
-    ray.far = reach;
-    const blocked = ray.intersectObjects(occlude, false).some((h) => h.distance < reach - 0.18 && h.object.userData.id !== m.id);
-    ray.far = Infinity;
-    return !blocked;
-  }
+  const labelRows = MONUMENTS.map((m) => ({ id: m.id, x: 0, y: 0, visible: false, major: m.major, depth: 0 }));
+  const stationRows = CITY.metro.stations.map((s) => ({ id: s.id, x: 0, y: 0, visible: false }));
 
   function projectLabels() {
-    const out = [];
-    for (const m of MONUMENTS) {
+    camN.copy(camera.position).normalize();
+    for (let i = 0; i < MONUMENTS.length; i++) {
+      const m = MONUMENTS[i];
+      const row = labelRows[i];
       proj.copy(labelAnchor(m)).project(camera);
-      const visible = (m.id === focusedId || labelOpen(m)) && proj.z < 1;
-      out.push({
-        id: m.id,
-        x: (proj.x * 0.5 + 0.5) * innerWidth,
-        y: (-proj.y * 0.5 + 0.5) * innerHeight,
-        visible,
-        major: m.major,
-        depth: camera.position.distanceTo(m.obj.position),
-      });
+      const facing = m.obj.userData.normal.dot(camera.position) - m.base >= 0.45;
+      const slack = Math.max(0.18, (m.worldH || 0) * 0.42);
+      const gap = occluder ? occluder.gap(proj.x, proj.y, proj.z) : 0;
+      const open = facing && !(gap > slack);
+      row.x = (proj.x * 0.5 + 0.5) * innerWidth;
+      row.y = (-proj.y * 0.5 + 0.5) * innerHeight;
+      row.visible = (m.id === focusedId || open) && proj.z < 1;
+      row.depth = camera.position.distanceTo(m.obj.position);
     }
-    const stations = CITY.metro.stations.map((s, i) => {
+    for (let i = 0; i < stationRows.length; i++) {
       const sph = stationWorld[i];
+      const row = stationRows[i];
       proj.copy(sph).project(camera);
-      const facing = sph.clone().normalize().dot(camera.position.clone().normalize());
-      return {
-        id: s.id,
-        x: (proj.x * 0.5 + 0.5) * innerWidth,
-        y: (-proj.y * 0.5 + 0.5) * innerHeight,
-        visible: showMetro && facing > 0.5 && proj.z < 1,
-      };
-    });
-    return { monuments: out, stations };
+      const facing = sphN.copy(sph).normalize().dot(camN);
+      row.x = (proj.x * 0.5 + 0.5) * innerWidth;
+      row.y = (-proj.y * 0.5 + 0.5) * innerHeight;
+      row.visible = showMetro && facing > 0.5 && proj.z < 1;
+    }
+    return { monuments: labelRows, stations: stationRows };
   }
 
   hooks.progress(100);
